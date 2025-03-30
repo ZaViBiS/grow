@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body>
+<p>
+      Температура зараз: {{TEMP}}
+      Вологість зараз: {{HUM}} 
+      Температура за 24 години: {{AVGTEMP}}
+      Вологість за 24 години: {{AVGHUM}}
+
+      швидкість кулера зараз: {{FANSPEED}}
+      швидкість кулера за 24 години: {{AVGFANSPEED}}
+
+      ствтус осушувача повітря: {{DIHUMIDEFIER}}
+
+      VPD: {{VPD}}
+      VPD за 24 години: {{AVGVPD}}
+</p>
+
+      <button onclick="something('/off')">hello</button>
+
+
+    <label for="value">Введіть значення:</label>
+<input type="text" id="value">
+<button onclick="sendAndRedirect()">Відправити</button>
+  <script>
+function sendAndRedirect() {
+    let inputValue = document.getElementById("value").value;
+    // Створюємо новий URL
+    let newUrl = window.location.href.split('#')[0] + '/off#' + encodeURIComponent(inputValue);
+    
+    // Перенаправляємо на новий URL
+    window.location.href = newUrl;
+}
+function something(ne) {
+  let newUrl = window.location.href + ne
+  window.location.href = newUrl
+}
+</script>
+</body>
+
+</html>
+
+
