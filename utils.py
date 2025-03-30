@@ -24,12 +24,12 @@ def html_load(
     with open("index.html", "r") as file:
         html = file.read()
 
-    html = html.replace("{{TEMP}}", str(temp))
-    html = html.replace("{{HUM}}", str(hum))
-    html = html.replace("{{AVGTEMP}}", str(avg_temp))
-    html = html.replace("{{AVGHUM}}", str(avg_hum))
-    html = html.replace("{{FANSPEED}}", str(fan_speed))
-    html = html.replace("{{AVGFANSPEED}}", str(avg_fan_speed))
+    html = html.replace("{{TEMP}}", f"{temp:.2f}C")
+    html = html.replace("{{HUM}}", f"{hum:.2f}%")
+    html = html.replace("{{AVGTEMP}}", f"{avg_temp:.2f}C")
+    html = html.replace("{{AVGHUM}}", f"{avg_hum:.2f}%")
+    html = html.replace("{{FANSPEED}}", f"{fan_speed}%")
+    html = html.replace("{{AVGFANSPEED}}", f"{avg_fan_speed}%")
     html = html.replace("{{DIHUMIDEFIER}}", str(dihumidefier))
     html = html.replace("{{VPD}}", str(vpd))
     html = html.replace("{{AVGVPD}}", str(avg_vpd))
