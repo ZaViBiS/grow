@@ -16,7 +16,7 @@ BASE_URL = "https://openapi.tuyaus.com"
 
 class SmarkPlugContorl:
     def __init__(self) -> None:
-        self.last_status = False
+        self.last_status = self.update_device_status()
 
     def __gettime_ms(self) -> str:
         # 946684800 - це конвертація часу в unix
@@ -124,7 +124,7 @@ class SmarkPlugContorl:
             return True
         return False
 
-    def change(self, status: bool = False):
+    def change_condition(self, status: bool):
         if self.last_status != status:
             self.last_status = status
             try:
