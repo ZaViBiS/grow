@@ -15,4 +15,11 @@ if not sta_if.isconnected():
 print("network config:", sta_if.ipconfig("addr4"))
 if time.localtime()[0] == 2000:
     ntptime.settime()
+
+# 🔹 Створення власної точки доступу (AP mode)
+ap_if = network.WLAN(network.AP_IF)
+ap_if.active(True)
+ap_if.config(essid="ESP32_Network", password="12345678")
+print("Створено Wi-Fi AP! IP:", ap_if.ifconfig()[0])
+
 gc.collect()
