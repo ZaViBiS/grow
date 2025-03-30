@@ -3,7 +3,7 @@ import time
 import gc
 
 from micropyserver import MicroPyServer
-from machine import Pin, I2C, SPI, PWM
+from machine import Pin, I2C, PWM
 from micropython_sht4x import sht4x
 
 from fan_control import FanControl
