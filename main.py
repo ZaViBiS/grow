@@ -110,6 +110,8 @@ while True:
     ssd.printstring(f"ram free: {gc.mem_free()} bytes\n")
     o.show()
 
+    gc.collect()
+
     delay_time = (2.5 * 60) - ((time.ticks_ms() - start) / 1000)
     if delay_time > 0:
         time.sleep(delay_time)
