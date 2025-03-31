@@ -14,7 +14,7 @@ from ssd1306 import SSD1306_I2C
 from writer import Writer
 import tuny
 
-POINT_TEMP = 26
+POINT_TEMP = 15
 POINT_HUM = 40
 
 # I2C
@@ -85,12 +85,12 @@ async def main_loop():
         stat.data["fan_speeds"].append(out_fan.fan_speed)
 
         if int(data_now["hum"]) == POINT_HUM and not smart.last_status:
-            smart.change_condition(False)
+            await smart.change_condition(False)
         else:
             if data_now["hum"] > POINT_HUM + 5:
-                smart.change_condition(True)
+                await smart.change_condition(True)
             elif data_now["hum"] < POINT_HUM - 5:
-                smart.change_condition(False)
+                await smart.change_condition(False)
 
         if data_now["temp"] > POINT_TEMP + 1:
             out_fan.set_speed(out_fan.fan_speed + 1)

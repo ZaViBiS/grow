@@ -1,7 +1,7 @@
 import time
 import hashlib
 import hmac
-import requests
+import aiohttp
 import json
 import binascii
 
@@ -16,7 +16,7 @@ BASE_URL = "https://openapi.tuyaus.com"
 
 class SmarkPlugContorl:
     def __init__(self) -> None:
-        self.last_status = self.update_device_status()
+        self.last_status = None
 
     def __gettime_ms(self) -> str:
         # 946684800 - це конвертація часу в unix
@@ -26,7 +26,7 @@ class SmarkPlugContorl:
     def __command(status: bool):
         return {"commands": [{"code": "switch_1", "value": status}]}
 
-    def __get_access_token(self):
+    async def __get_access_token(self):
         """Отримує access token від Tuya API."""
         t = self.__gettime_ms()
         method = "GET"
@@ -51,17 +51,18 @@ class SmarkPlugContorl:
             "Content-Type": "application/json",
         }
 
-        response = requests.get(BASE_URL + url, headers=headers)
-        data = response.json()
+        async with aiohttp.ClientSession() as session:
+            async with session.get(BASE_URL + url, headers=headers) as response:
+                data = await response.json()
 
         if data["success"]:
             return data["result"]["access_token"]
         else:
             raise Exception("Не вдалося отримати access token: " + data["msg"])
 
-    def __send_command(self, set_status: bool):
+    async def __send_command(self, set_status: bool):
         """Відправляє команду для вимкнення пристрою."""
-        access_token = self.__get_access_token()
+        access_token = await self.__get_access_token()
         t = self.__gettime_ms()
         method = "POST"
         url = f"/v1.0/devices/{DEVICE_ID}/commands"
@@ -88,17 +89,20 @@ class SmarkPlugContorl:
             "Content-Type": "application/json",
         }
 
-        response = requests.post(BASE_URL + url, headers=headers, data=body)
-        data = response.json()
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                BASE_URL + url, headers=headers, data=body
+            ) as response:
+                data = await response.json()
 
         if data["success"]:
             print(f"Розетка успішно змінила свій статус на {set_status}")
         else:
             print("Не вдалося відправити команду: " + data["msg"])
 
-    def update_device_status(self) -> bool:
+    async def update_device_status(self) -> bool:
         t = self.__gettime_ms()
-        access_token = self.__get_access_token()
+        access_token = await self.__get_access_token()
         url = f"/v1.0/devices/{DEVICE_ID}/status"
         sha256_body = binascii.hexlify(hashlib.sha256(b"").digest()).decode()
         string_to_sign = f"{CLIENT_ID}{access_token}{t}GET\n{sha256_body}\n\n{url}"
@@ -116,18 +120,19 @@ class SmarkPlugContorl:
             "sign_method": "HMAC-SHA256",
         }
 
-        response = requests.get(BASE_URL + url, headers=headers)
-        data = response.json()
+        async with aiohttp.ClientSession() as session:
+            async with session.get(BASE_URL + url, headers=headers) as response:
+                data = await response.json()
         if data["success"]:
             self.last_status = data["result"][0]["value"]
 
             return True
         return False
 
-    def change_condition(self, status: bool):
+    async def change_condition(self, status: bool):
         if self.last_status != status:
             self.last_status = status
             try:
-                self.__send_command(status)
+                await self.__send_command(status)
             except Exception as e:
                 print(e)
