@@ -10,32 +10,6 @@ def log(text: str) -> None:
     print(f"{date_str} - INFO - {text}")
 
 
-def html_load(
-    temp: float,
-    avg_temp: float,
-    hum: float,
-    avg_hum: float,
-    fan_speed: int,
-    avg_fan_speed: float,
-    dihumidefier: bool,
-    vpd: float,
-    avg_vpd: float,
-) -> str:
-    with open("index.html", "r") as file:
-        html = file.read()
-
-    html = html.replace("{{TEMP}}", f"{temp:.2f}C")
-    html = html.replace("{{HUM}}", f"{hum:.2f}%")
-    html = html.replace("{{AVGTEMP}}", f"{avg_temp:.2f}C")
-    html = html.replace("{{AVGHUM}}", f"{avg_hum:.2f}%")
-    html = html.replace("{{FANSPEED}}", f"{fan_speed}%")
-    html = html.replace("{{AVGFANSPEED}}", f"{avg_fan_speed}%")
-    html = html.replace("{{DIHUMIDEFIER}}", str(dihumidefier))
-    html = html.replace("{{VPD}}", str(vpd))
-    html = html.replace("{{AVGVPD}}", str(avg_vpd))
-    return html
-
-
 def saturation_vapor_pressure(temp):
     """
     Розрахунок насиченого парціального тиску (SVP) за температури (°C).
@@ -67,7 +41,7 @@ class Statistics:
             else:
                 return
 
-    def statistics_for_24h(self) -> tuple[float, float, float, float]:
+    def statistics_for_24h(self) -> dict[str, float]:
         self.__delete_outdated_data()
         temp_avg, hum_avg, vpd_avg, avg_fan_speed = 0, 0, 0, 0
         num = 0
@@ -77,5 +51,9 @@ class Statistics:
             vpd_avg += x[3]
             avg_fan_speed += x[4]
             num += 1
-
-        return temp_avg / num, hum_avg / num, vpd_avg / num, avg_fan_speed / num
+        res = {}
+        res["temp"] = temp_avg / num
+        res["hum"] = hum_avg / num
+        res["vpd"] = vpd_avg / num
+        res["fan_speed"] = avg_fan_speed / num
+        return res

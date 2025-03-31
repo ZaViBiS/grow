@@ -1,54 +1,268 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-  <body>
-    <style></style>
-    <ul
-      style="
-        font-family: &quot;Ubuntu&quot;, sans-serif;
-        font-weight: 400;
-        font-style: normal;
-      "
-    >
-      <li>Температура зараз: {{TEMP}}</li>
-      <li>Вологість зараз: {{HUM}}</li>
-      <li>Температура за 24 години: {{AVGTEMP}}</li>
-      <li>Вологість за 24 години: {{AVGHUM}}</li>
-      <li>швидкість кулера зараз: {{FANSPEED}}</li>
-      <li>швидкість кулера за 24 години: {{AVGFANSPEED}}</li>
-      <li>ствтус осушувача повітря: {{DIHUMIDEFIER}}</li>
-      <li>VPD: {{VPD}}</li>
-      <li>VPD за 24 години: {{AVGVPD}}</li>
-    </ul>
-    <button onclick="something('/off')">hello</button>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Sensor History</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            font-size: 18px; /* Збільшений базовий шрифт */
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            font-size: 24px; /* Збільшений заголовок */
+        }
+        .chart-container {
+            position: relative;
+            width: 100%; /* Займає всю ширину */
+            max-width: 1200px; /* Максимальна ширина для великих екранів */
+            height: 300px;
+            margin: 30px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #error-message {
+            text-align: center;
+            color: red;
+            margin-top: 20px;
+            display: none;
+            font-size: 16px;
+        }
+        .current-data {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+            font-size: 18px; /* Збільшений шрифт для поточних даних */
+        }
+        .current-data span {
+            margin: 0 10px;
+            font-weight: bold;
+        }
 
-    <label for="value">Введіть значення:</label>
-    <input type="text" id="value" />
-    <button onclick="sendAndRedirect()">Відправити</button>
+        /* Медіа-запити для телефонів */
+        @media (max-width: 768px) {
+            body {
+                margin: 10px;
+                font-size: 16px; /* Трохи менший шрифт для малих екранів */
+            }
+            h1 {
+                font-size: 20px;
+            }
+            .chart-container {
+                padding: 10px;
+                margin: 10px auto;
+            }
+            .current-data {
+                font-size: 16px;
+                padding: 10px;
+            }
+            #error-message {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Історія показників сенсорів ESP32</h1>
+
+    <div class="current-data" id="current-data-display">
+        Завантаження поточних даних...
+    </div>
+
+    <div class="chart-container">
+        <canvas id="sensorHistoryChart"></canvas>
+    </div>
+    <div id="error-message">Не вдалося завантажити дані історії. Перевірте з'єднання з ESP32 та ендпоінт /history.</div>
+
     <script>
-      function sendAndRedirect() {
-        let inputValue = document.getElementById("value").value;
-        // Створюємо новий URL
-        let newUrl =
-          window.location.href.split("#")[0] +
-          "/off#" +
-          encodeURIComponent(inputValue);
+        const historyCtx = document.getElementById('sensorHistoryChart').getContext('2d');
+        const historyErrorMessageDiv = document.getElementById('error-message');
+        const currentDataDisplayDiv = document.getElementById('current-data-display');
+        let sensorHistoryChart;
 
-        // Перенаправляємо на новий URL
-        window.location.href = newUrl;
-      }
-      function something(ne) {
-        let newUrl = window.location.href + ne;
-        window.location.href = newUrl;
-      }
+        // Кольори для графіка
+        const historyPastelBackgrounds = {
+            temperature: 'rgba(255, 179, 186, 0.3)',
+            humidity: 'rgba(186, 225, 255, 0.3)',
+            fanSpeed: 'rgba(186, 255, 201, 0.3)',
+        };
+        const historyBorderColors = {
+            temperature: 'rgba(255, 99, 132, 1)',
+            humidity: 'rgba(54, 162, 235, 1)',
+            fanSpeed: 'rgba(75, 192, 192, 1)',
+        };
+
+        // Функція для створення/оновлення графіка
+        function createOrUpdateHistoryChart(historyData) {
+            historyErrorMessageDiv.style.display = 'none';
+
+            // Перетворюємо timestamps у повні дати для Chart.js
+            const timestamps = historyData.timestamps.map((time, index) => {
+                const now = new Date();
+                const [hours, minutes] = time.split(':');
+                now.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                now.setDate(now.getDate() - Math.floor(index / 1440));
+                return now;
+            });
+
+            const datasets = [
+                {
+                    label: 'Температура (°C)',
+                    data: historyData.temperatures,
+                    borderColor: historyBorderColors.temperature,
+                    backgroundColor: historyPastelBackgrounds.temperature,
+                    yAxisID: 'y_temp_hum',
+                    tension: 0.1,
+                    fill: true,
+                    pointRadius: 2,
+                    pointHoverRadius: 5
+                },
+                {
+                    label: 'Вологість (%)',
+                    data: historyData.humidities,
+                    borderColor: historyBorderColors.humidity,
+                    backgroundColor: historyPastelBackgrounds.humidity,
+                    yAxisID: 'y_temp_hum',
+                    tension: 0.1,
+                    fill: true,
+                    pointRadius: 2,
+                    pointHoverRadius: 5
+                },
+                {
+                    label: 'Швидкість Вентилятора (%)',
+                    data: historyData.fan_speeds,
+                    borderColor: historyBorderColors.fanSpeed,
+                    backgroundColor: historyPastelBackgrounds.fanSpeed,
+                    yAxisID: 'y_fan',
+                    tension: 0.1,
+                    fill: true,
+                    pointRadius: 2,
+                    pointHoverRadius: 5
+                }
+            ];
+
+            if (sensorHistoryChart) {
+                // Оновлення графіка
+                sensorHistoryChart.data.labels = timestamps;
+                sensorHistoryChart.data.datasets[0].data = historyData.temperatures;
+                sensorHistoryChart.data.datasets[1].data = historyData.humidities;
+                sensorHistoryChart.data.datasets[2].data = historyData.fan_speeds;
+                sensorHistoryChart.update();
+            } else {
+                // Створення нового графіка
+                sensorHistoryChart = new Chart(historyCtx, {
+                    type: 'line',
+                    data: {
+                        labels: timestamps,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'minute',
+                                    displayFormats: {
+                                        minute: 'HH:mm'
+                                    },
+                                    tooltipFormat: 'HH:mm'
+                                },
+                                title: { display: true, text: 'Час' }
+                            },
+                            y_temp_hum: {
+                                type: 'linear',
+                                position: 'left',
+                                beginAtZero: false,
+                                title: { display: true, text: 'Температура (°C) / Вологість (%)' }
+                            },
+                            y_fan: {
+                                type: 'linear',
+                                position: 'right',
+                                beginAtZero: true,
+                                max: 100,
+                                title: { display: true, text: 'Швидкість Вентилятора (%)' },
+                                grid: { drawOnChartArea: false }
+                            }
+                        },
+                        plugins: {
+                            legend: { position: 'top' }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Функція для отримання даних історії
+        function fetchHistoryData() {
+            fetch('/history')
+                .then(response => {
+                    if (!response.ok) throw new Error(`Помилка HTTP: ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("Отримані дані історії:", data);
+                    if (data && Array.isArray(data.timestamps) && Array.isArray(data.temperatures) && 
+                        Array.isArray(data.humidities) && Array.isArray(data.fan_speeds)) {
+                        createOrUpdateHistoryChart(data);
+                    } else {
+                        throw new Error("Неправильний формат даних історії");
+                    }
+                })
+                .catch(error => {
+                    console.error('Помилка отримання історії:', error);
+                    historyErrorMessageDiv.textContent = `Помилка: ${error.message}`;
+                    historyErrorMessageDiv.style.display = 'block';
+                });
+        }
+
+        // Функція для отримання поточних даних
+        function fetchCurrentData() {
+            fetch('/data')
+                .then(response => {
+                    if (!response.ok) throw new Error(`Помилка HTTP: ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("Отримані поточні дані:", data);
+                    if (data && 'temp_now' in data && 'hum_now' in data && 'vpd_now' in data && 'fan_speed' in data) {
+                        currentDataDisplayDiv.innerHTML = `
+                            Поточні:
+                            <span>Темп: ${data.temp_now.toFixed(1)}°C</span> |
+                            <span>Волог: ${data.hum_now.toFixed(1)}%</span> |
+                            <span>VPD: ${data.vpd_now.toFixed(2)} kPa</span> |
+                            <span>Вент: ${data.fan_speed}%</span>
+                        `;
+                    } else {
+                        throw new Error("Неправильний формат поточних даних");
+                    }
+                })
+                .catch(error => {
+                    console.error('Помилка отримання поточних даних:', error);
+                    currentDataDisplayDiv.textContent = `Помилка: ${error.message}`;
+                });
+        }
+
+        // Перший запуск та інтервали оновлення
+        fetchHistoryData();
+        fetchCurrentData();
+        setInterval(fetchHistoryData, 600000); // 10 хвилина
+        setInterval(fetchCurrentData, 2*60*1000);  // 2 хвилини
     </script>
-  </body>
+</body>
 </html>

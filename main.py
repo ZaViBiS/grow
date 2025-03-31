@@ -1,5 +1,6 @@
 import asyncio
 import time
+import json
 import gc
 
 from microdot import Microdot, Response
@@ -30,13 +31,11 @@ Response.default_content_type = "text/html"
 app = Microdot()
 
 smart = SmarkPlugContorl()
+stat = utils.Statistics()
 
 
-temp_now = 0.0
-hum_now = 0.0
-vpd_now = 0.0
-
-temp_avg, hum_avg, avg_vpd, fan_speed_avg = 0.0, 0.0, 0.0, 0.0
+data_now = {"temp": 0, "hum": 0, "vpd": 0}
+data_avg = {"temp": 0, "hum": 0, "vpd": 0, "fan_speed": 0}
 
 
 async def antidead_signal():
@@ -50,34 +49,32 @@ async def antidead_signal():
 
 @app.route("/")
 async def index(request):
-    return Response(
-        utils.html_load(
-            temp_now,
-            temp_avg,
-            hum_now,
-            hum_avg,
-            out_fan.fan_speed,
-            fan_speed_avg,
-            False,
-            vpd_now,
-            avg_vpd,
-        )
-    )
+    return Response.send_file("index.html", content_type="text/html")
+
+
+@app.route("/data")
+async def data(request):
+    data = data_now
+    data["fan_speed"] = out_fan.fan_speed
+    return json.dumps(data)
+
+
+@app.route("/history")
+async def history(request):
+    return json.dumps(stat.data)
 
 
 async def main_loop():
-    global temp_now, hum_now, vpd_now, temp_avg, hum_avg, avg_vpd, fan_speed_avg
-    stat = utils.Statistics()
     while True:
-        temp_now, hum_now = sht.measurements
-        vpd_now = utils.vpd_calculator(temp_now, hum_now)
+        data_now["temp"], data_now["hum"] = sht.measurements
+        data_now["vpd"] = utils.vpd_calculator(data_now["temp"], data_now["hum"])
 
         stat.data.append(
             (
-                temp_now,
-                hum_now,
+                data_now["temp"],
+                data_now["hum"],
                 time.time(),
-                utils.vpd_calculator(temp_now, hum_now),
+                data_now["vpd"],
                 out_fan.fan_speed,
             )
         )
@@ -90,21 +87,25 @@ async def main_loop():
         #     elif hum_now < POINT_HUM - 5:
         #         smart.change_condition(False)
 
-        if temp_now > POINT_TEMP + 1:
+        if data_now["temp"] > POINT_TEMP + 1:
             out_fan.set_speed(out_fan.fan_speed + 1)
-        elif temp_now < POINT_TEMP - 1:
+        elif data_now["temp"] < POINT_TEMP - 1:
             out_fan.set_speed(out_fan.fan_speed - 1)
 
         utils.log(
-            f"temp: {temp_now:.2f}C, hum: {hum_now:.2f}% | out_fan speed: {out_fan.fan_speed}"
+            f"temp: {data_now['temp']:.2f}C, hum: {data_now['hum']:.2f}% | out_fan speed: {out_fan.fan_speed}"
         )
-        temp_avg, hum_avg, avg_vpd, fan_speed_avg = stat.statistics_for_24h()
+        data_avg = stat.statistics_for_24h()
         o.fill(0)
         ssd.set_textpos(o, 0, 0)
-        ssd.printstring(f"TEMP/avg: {temp_now:.2f}C | {temp_avg:.2f}C\n")
-        ssd.printstring(f"HUM/avg:  {hum_now:.2f}% | {hum_avg:.2f}%\n")
-        ssd.printstring(f"OUT fan speed: {out_fan.fan_speed}% | {fan_speed_avg}%\n")
-        ssd.printstring(f"VPD: {vpd_now:.2f} avg: {avg_vpd:.2f}\n")
+        ssd.printstring(
+            f"TEMP/avg: {data_now['temp']:.2f}C | {data_avg['temp']:.2f}C\n"
+        )
+        ssd.printstring(f"HUM/avg:  {data_now['hum']:.2f}% | {data_avg['hum']:.2f}%\n")
+        ssd.printstring(
+            f"OUT fan speed: {out_fan.fan_speed}% | {data_avg['fan_speed']}%\n"
+        )
+        ssd.printstring(f"VPD: {data_now['vpd']:.2f} avg: {data_avg['vpd']:.2f}\n")
         ssd.printstring(f"ram free: {gc.mem_free()} bytes\n")
         o.show()
         gc.collect()
