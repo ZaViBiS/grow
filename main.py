@@ -1,6 +1,5 @@
 import asyncio
 import time
-import json
 import gc
 
 from microdot import Microdot, Response
@@ -54,14 +53,24 @@ async def index(request):
 
 @app.route("/data")
 async def data(request):
-    data = data_now
-    data["fan_speed"] = out_fan.fan_speed
-    return json.dumps(data)
+    data_now["fan_speed"] = out_fan.fan_speed
+    return data_now
 
 
 @app.route("/history")
 async def history(request):
-    return json.dumps(stat.data)
+    gc.collect()
+    return stat.data
+
+
+@app.route("/chart.js")
+async def chart(request):
+    return Response.send_file("chart.js", content_type="application/javascript")
+
+
+@app.route("/min.js")
+async def min_js(request):
+    return Response.send_file("min.js", content_type="application/javascript")
 
 
 async def main_loop():
@@ -69,32 +78,25 @@ async def main_loop():
         data_now["temp"], data_now["hum"] = sht.measurements
         data_now["vpd"] = utils.vpd_calculator(data_now["temp"], data_now["hum"])
 
-        stat.data.append(
-            (
-                data_now["temp"],
-                data_now["hum"],
-                time.time(),
-                data_now["vpd"],
-                out_fan.fan_speed,
-            )
-        )
+        stat.data["time"].append(time.time())
+        stat.data["temp"].append(data_now["temp"])
+        stat.data["hum"].append(data_now["hum"])
+        stat.data["vpd"].append(data_now["vpd"])
+        stat.data["fan_speeds"].append(out_fan.fan_speed)
 
-        # if int(hum_now) == POINT_HUM and not smart.last_status:
-        #     smart.change_condition(False)
-        # else:
-        #     if hum_now > POINT_HUM + 5:
-        #         smart.change_condition(True)
-        #     elif hum_now < POINT_HUM - 5:
-        #         smart.change_condition(False)
+        if int(data_now["hum"]) == POINT_HUM and not smart.last_status:
+            smart.change_condition(False)
+        else:
+            if data_now["hum"] > POINT_HUM + 5:
+                smart.change_condition(True)
+            elif data_now["hum"] < POINT_HUM - 5:
+                smart.change_condition(False)
 
         if data_now["temp"] > POINT_TEMP + 1:
             out_fan.set_speed(out_fan.fan_speed + 1)
         elif data_now["temp"] < POINT_TEMP - 1:
             out_fan.set_speed(out_fan.fan_speed - 1)
 
-        utils.log(
-            f"temp: {data_now['temp']:.2f}C, hum: {data_now['hum']:.2f}% | out_fan speed: {out_fan.fan_speed}"
-        )
         data_avg = stat.statistics_for_24h()
         o.fill(0)
         ssd.set_textpos(o, 0, 0)
@@ -114,7 +116,7 @@ async def main_loop():
 
 
 async def main():
-    server = asyncio.create_task(app.start_server())
+    server = asyncio.create_task(app.start_server(port=80, debug=True))
 
     asyncio.create_task(antidead_signal())
     asyncio.create_task(main_loop())

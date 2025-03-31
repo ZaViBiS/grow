@@ -31,12 +31,12 @@ def vpd_calculator(temp, rh):
 
 class Statistics:
     def __init__(self) -> None:
-        self.data = []
+        self.data = {"time": [], "temp": [], "hum": [], "vpd": [], "fan_speeds": []}
 
     def __delete_outdated_data(self) -> None:
-        for x in self.data:
-            if x[2] < time.time() - (24 * 60 * 60):  # 24h
-                del self.data[self.data.index(x)]
+        for x in self.data["time"]:
+            if x < time.time() - (24 * 60 * 60):  # 24h
+                del self.data["time"][self.data["time"].index(x)]
                 return
             else:
                 return
@@ -45,11 +45,16 @@ class Statistics:
         self.__delete_outdated_data()
         temp_avg, hum_avg, vpd_avg, avg_fan_speed = 0, 0, 0, 0
         num = 0
-        for x in self.data:
-            temp_avg += x[0]
-            hum_avg += x[1]
-            vpd_avg += x[3]
-            avg_fan_speed += x[4]
+        for temp, hum, vpd, fan in zip(
+            self.data["temp"],
+            self.data["hum"],
+            self.data["vpd"],
+            self.data["fan_speeds"],
+        ):
+            temp_avg += temp
+            hum_avg += hum
+            vpd_avg += vpd
+            avg_fan_speed += fan
             num += 1
         res = {}
         res["temp"] = temp_avg / num

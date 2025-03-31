@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ESP32 Sensor History</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="/chart.js"></script>
+    <script src="/min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -85,184 +85,187 @@
     <div id="error-message">Не вдалося завантажити дані історії. Перевірте з'єднання з ESP32 та ендпоінт /history.</div>
 
     <script>
-        const historyCtx = document.getElementById('sensorHistoryChart').getContext('2d');
-        const historyErrorMessageDiv = document.getElementById('error-message');
-        const currentDataDisplayDiv = document.getElementById('current-data-display');
-        let sensorHistoryChart;
+    const historyCtx = document.getElementById('sensorHistoryChart').getContext('2d');
+    const historyErrorMessageDiv = document.getElementById('error-message');
+    const currentDataDisplayDiv = document.getElementById('current-data-display');
+    let sensorHistoryChart;
 
-        // Кольори для графіка
-        const historyPastelBackgrounds = {
-            temperature: 'rgba(255, 179, 186, 0.3)',
-            humidity: 'rgba(186, 225, 255, 0.3)',
-            fanSpeed: 'rgba(186, 255, 201, 0.3)',
-        };
-        const historyBorderColors = {
-            temperature: 'rgba(255, 99, 132, 1)',
-            humidity: 'rgba(54, 162, 235, 1)',
-            fanSpeed: 'rgba(75, 192, 192, 1)',
-        };
+    // Кольори для графіка
+    const historyPastelBackgrounds = {
+        temperature: 'rgba(255, 179, 186, 0.3)',
+        humidity: 'rgba(186, 225, 255, 0.3)',
+        fanSpeed: 'rgba(186, 255, 201, 0.3)',
+    };
+    const historyBorderColors = {
+        temperature: 'rgba(255, 99, 132, 1)',
+        humidity: 'rgba(54, 162, 235, 1)',
+        fanSpeed: 'rgba(75, 192, 192, 1)',
+    };
 
-        // Функція для створення/оновлення графіка
-        function createOrUpdateHistoryChart(historyData) {
-            historyErrorMessageDiv.style.display = 'none';
+    // Функція для створення/оновлення графіка
+    function createOrUpdateHistoryChart(historyData) {
+        historyErrorMessageDiv.style.display = 'none';
 
-            // Перетворюємо timestamps у повні дати для Chart.js
-            const timestamps = historyData.timestamps.map((time, index) => {
-                const now = new Date();
-                const [hours, minutes] = time.split(':');
-                now.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-                now.setDate(now.getDate() - Math.floor(index / 1440));
-                return now;
-            });
+        // Timestamps уже в мілісекундах (перетворені в fetchHistoryData)
+        const timestamps = historyData.timestamps;
 
-            const datasets = [
-                {
-                    label: 'Температура (°C)',
-                    data: historyData.temperatures,
-                    borderColor: historyBorderColors.temperature,
-                    backgroundColor: historyPastelBackgrounds.temperature,
-                    yAxisID: 'y_temp_hum',
-                    tension: 0.1,
-                    fill: true,
-                    pointRadius: 2,
-                    pointHoverRadius: 5
-                },
-                {
-                    label: 'Вологість (%)',
-                    data: historyData.humidities,
-                    borderColor: historyBorderColors.humidity,
-                    backgroundColor: historyPastelBackgrounds.humidity,
-                    yAxisID: 'y_temp_hum',
-                    tension: 0.1,
-                    fill: true,
-                    pointRadius: 2,
-                    pointHoverRadius: 5
-                },
-                {
-                    label: 'Швидкість Вентилятора (%)',
-                    data: historyData.fan_speeds,
-                    borderColor: historyBorderColors.fanSpeed,
-                    backgroundColor: historyPastelBackgrounds.fanSpeed,
-                    yAxisID: 'y_fan',
-                    tension: 0.1,
-                    fill: true,
-                    pointRadius: 2,
-                    pointHoverRadius: 5
-                }
-            ];
-
-            if (sensorHistoryChart) {
-                // Оновлення графіка
-                sensorHistoryChart.data.labels = timestamps;
-                sensorHistoryChart.data.datasets[0].data = historyData.temperatures;
-                sensorHistoryChart.data.datasets[1].data = historyData.humidities;
-                sensorHistoryChart.data.datasets[2].data = historyData.fan_speeds;
-                sensorHistoryChart.update();
-            } else {
-                // Створення нового графіка
-                sensorHistoryChart = new Chart(historyCtx, {
-                    type: 'line',
-                    data: {
-                        labels: timestamps,
-                        datasets: datasets
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: {
-                            mode: 'index',
-                            intersect: false,
-                        },
-                        scales: {
-                            x: {
-                                type: 'time',
-                                time: {
-                                    unit: 'minute',
-                                    displayFormats: {
-                                        minute: 'HH:mm'
-                                    },
-                                    tooltipFormat: 'HH:mm'
-                                },
-                                title: { display: true, text: 'Час' }
-                            },
-                            y_temp_hum: {
-                                type: 'linear',
-                                position: 'left',
-                                beginAtZero: false,
-                                title: { display: true, text: 'Температура (°C) / Вологість (%)' }
-                            },
-                            y_fan: {
-                                type: 'linear',
-                                position: 'right',
-                                beginAtZero: true,
-                                max: 100,
-                                title: { display: true, text: 'Швидкість Вентилятора (%)' },
-                                grid: { drawOnChartArea: false }
-                            }
-                        },
-                        plugins: {
-                            legend: { position: 'top' }
-                        }
-                    }
-                });
+        const datasets = [
+            {
+                label: 'Температура (°C)',
+                data: historyData.temperatures,
+                borderColor: historyBorderColors.temperature,
+                backgroundColor: historyPastelBackgrounds.temperature,
+                yAxisID: 'y_temp_hum',
+                tension: 0.1,
+                fill: true,
+                pointRadius: 2,
+                pointHoverRadius: 5
+            },
+            {
+                label: 'Вологість (%)',
+                data: historyData.humidities,
+                borderColor: historyBorderColors.humidity,
+                backgroundColor: historyPastelBackgrounds.humidity,
+                yAxisID: 'y_temp_hum',
+                tension: 0.1,
+                fill: true,
+                pointRadius: 2,
+                pointHoverRadius: 5
+            },
+            {
+                label: 'Швидкість Вентилятора (%)',
+                data: historyData.fan_speeds,
+                borderColor: historyBorderColors.fanSpeed,
+                backgroundColor: historyPastelBackgrounds.fanSpeed,
+                yAxisID: 'y_fan',
+                tension: 0.1,
+                fill: true,
+                pointRadius: 2,
+                pointHoverRadius: 5
             }
-        }
+        ];
 
-        // Функція для отримання даних історії
-        function fetchHistoryData() {
-            fetch('/history')
-                .then(response => {
-                    if (!response.ok) throw new Error(`Помилка HTTP: ${response.status}`);
-                    return response.json();
-                })
-                .then(data => {
-                    console.log("Отримані дані історії:", data);
-                    if (data && Array.isArray(data.timestamps) && Array.isArray(data.temperatures) && 
-                        Array.isArray(data.humidities) && Array.isArray(data.fan_speeds)) {
-                        createOrUpdateHistoryChart(data);
-                    } else {
-                        throw new Error("Неправильний формат даних історії");
+        if (sensorHistoryChart) {
+            // Оновлення графіка
+            sensorHistoryChart.data.labels = timestamps;
+            sensorHistoryChart.data.datasets[0].data = historyData.temperatures;
+            sensorHistoryChart.data.datasets[1].data = historyData.humidities;
+            sensorHistoryChart.data.datasets[2].data = historyData.fan_speeds;
+            sensorHistoryChart.update();
+        } else {
+            // Створення нового графіка
+            sensorHistoryChart = new Chart(historyCtx, {
+                type: 'line',
+                data: {
+                    labels: timestamps,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'minute',
+                                displayFormats: {
+                                    minute: 'HH:mm'
+                                },
+                                tooltipFormat: 'HH:mm'
+                            },
+                            title: { display: true, text: 'Час' }
+                        },
+                        y_temp_hum: {
+                            type: 'linear',
+                            position: 'left',
+                            beginAtZero: false,
+                            title: { display: true, text: 'Температура (°C) / Вологість (%)' }
+                        },
+                        y_fan: {
+                            type: 'linear',
+                            position: 'right',
+                            beginAtZero: true,
+                            max: 100,
+                            title: { display: true, text: 'Швидкість Вентилятора (%)' },
+                            grid: { drawOnChartArea: false }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top' }
                     }
-                })
-                .catch(error => {
-                    console.error('Помилка отримання історії:', error);
-                    historyErrorMessageDiv.textContent = `Помилка: ${error.message}`;
-                    historyErrorMessageDiv.style.display = 'block';
-                });
+                }
+            });
         }
+    }
 
-        // Функція для отримання поточних даних
-        function fetchCurrentData() {
-            fetch('/data')
-                .then(response => {
-                    if (!response.ok) throw new Error(`Помилка HTTP: ${response.status}`);
-                    return response.json();
-                })
-                .then(data => {
-                    console.log("Отримані поточні дані:", data);
-                    if (data && 'temp_now' in data && 'hum_now' in data && 'vpd_now' in data && 'fan_speed' in data) {
-                        currentDataDisplayDiv.innerHTML = `
-                            Поточні:
-                            <span>Темп: ${data.temp_now.toFixed(1)}°C</span> |
-                            <span>Волог: ${data.hum_now.toFixed(1)}%</span> |
-                            <span>VPD: ${data.vpd_now.toFixed(2)} kPa</span> |
-                            <span>Вент: ${data.fan_speed}%</span>
-                        `;
-                    } else {
-                        throw new Error("Неправильний формат поточних даних");
-                    }
-                })
-                .catch(error => {
-                    console.error('Помилка отримання поточних даних:', error);
-                    currentDataDisplayDiv.textContent = `Помилка: ${error.message}`;
-                });
-        }
+    // Функція для отримання даних історії
+    function fetchHistoryData() {
+        fetch('/history')
+            .then(response => {
+                if (!response.ok) throw new Error(`Помилка HTTP: ${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                console.log("Отримані дані історії:", data);
+                if (data && Array.isArray(data.time) && Array.isArray(data.temp) && 
+                    Array.isArray(data.hum) && Array.isArray(data.fan_speeds)) {
+                    // Перетворюємо timestamps із секунд у мілісекунди для Chart.js
+                    const timestamps = data.time.map(t => (t + 946684800) * 1000);
+                    const historyData = {
+                        timestamps: timestamps,
+                        temperatures: data.temp,
+                        humidities: data.hum,
+                        fan_speeds: data.fan_speeds
+                    };
+                    createOrUpdateHistoryChart(historyData);
+                } else {
+                    throw new Error("Неправильний формат даних історії");
+                }
+            })
+            .catch(error => {
+                console.error('Помилка отримання історії:', error);
+                historyErrorMessageDiv.textContent = `Помилка: ${error.message}`;
+                historyErrorMessageDiv.style.display = 'block';
+            });
+    }
 
-        // Перший запуск та інтервали оновлення
-        fetchHistoryData();
-        fetchCurrentData();
-        setInterval(fetchHistoryData, 600000); // 10 хвилина
-        setInterval(fetchCurrentData, 2*60*1000);  // 2 хвилини
-    </script>
+    // Функція для отримання поточних даних
+    function fetchCurrentData() {
+        fetch('/data')
+            .then(response => {
+                if (!response.ok) throw new Error(`Помилка HTTP: ${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                console.log("Отримані поточні дані:", data);
+                if (data && 'temp' in data && 'hum' in data && 'vpd' in data && 'fan_speed' in data) {
+                    currentDataDisplayDiv.innerHTML = `
+                        Поточні:
+                        <span>Темп: ${data.temp.toFixed(1)}°C</span> |
+                        <span>Волог: ${data.hum.toFixed(1)}%</span> |
+                        <span>VPD: ${data.vpd.toFixed(2)} kPa</span> |
+                        <span>Вент: ${data.fan_speed}%</span>
+                    `;
+                } else {
+                    throw new Error("Неправильний формат поточних даних");
+                }
+            })
+            .catch(error => {
+                console.error('Помилка отримання поточних даних:', error);
+                currentDataDisplayDiv.textContent = `Помилка: ${error.message}`;
+            });
+    }
+
+    // Перший запуск та інтервали оновлення
+    fetchHistoryData();
+    fetchCurrentData();
+    setInterval(fetchHistoryData, 600000); // 10 хвилин
+    setInterval(fetchCurrentData, 2 * 60 * 1000); // 2 хвилини
+</script>
+
 </body>
 </html>
