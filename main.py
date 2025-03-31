@@ -2,7 +2,7 @@ import _thread
 import time
 import gc
 
-from micropyserver import MicroPyServer
+from microdot import Microdot
 from machine import Pin, I2C, PWM
 from micropython_sht4x import sht4x
 
@@ -27,7 +27,7 @@ ssd = Writer(o, tuny)
 out_fan = FanControl(1)
 out_fan.set_speed(0)
 
-server = MicroPyServer()
+server = Microdot()
 smart = SmarkPlugContorl()
 
 
@@ -47,6 +47,7 @@ def antidead_signal():
             time.sleep(0.8)
 
 
+@server.route("/")
 def main_page(request):
     server.send(
         utils.html_load(
@@ -63,9 +64,7 @@ def main_page(request):
     )
 
 
-server.add_route("/", main_page)
-
-_thread.start_new_thread(server.start, ())
+_thread.start_new_thread(server.run, ())
 
 stat = utils.Statistics()
 _thread.start_new_thread(antidead_signal, ())
