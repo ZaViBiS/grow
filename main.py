@@ -1,4 +1,5 @@
 import asyncio
+import json
 import time
 import gc
 
@@ -14,9 +15,6 @@ from ssd1306 import SSD1306_I2C
 from writer import Writer
 import tuny
 
-POINT_TEMP = 15
-POINT_HUM = 40
-
 # I2C
 i2c = I2C(0, sda=Pin(8), scl=Pin(9), freq=100_000)
 sht = sht4x.SHT4X(i2c)
@@ -31,6 +29,7 @@ app = Microdot()
 
 smart = SmarkPlugContorl()
 stat = utils.Statistics()
+points = utils.Points()
 
 
 data_now = {"temp": 0, "hum": 0, "vpd": 0}
@@ -63,6 +62,12 @@ async def history(request):
     return stat.data
 
 
+@app.route("/set_points", methods=["POST"])
+async def set_points(request):
+    await points.change_data(json.loads(request.body))
+    await points.update_data_in_class()
+
+
 @app.route("/chart.js")
 async def chart(request):
     return Response.send_file("chart.js", content_type="application/javascript")
@@ -74,6 +79,7 @@ async def min_js(request):
 
 
 async def main_loop():
+    await points.update_data_in_class()
     while True:
         data_now["temp"], data_now["hum"] = sht.measurements
         data_now["vpd"] = utils.vpd_calculator(data_now["temp"], data_now["hum"])
@@ -84,32 +90,32 @@ async def main_loop():
         stat.data["vpd"].append(data_now["vpd"])
         stat.data["fan_speeds"].append(out_fan.fan_speed)
 
-        if int(data_now["hum"]) == POINT_HUM and not smart.last_status:
+        if int(data_now["hum"]) == points.POINT_HUM and not smart.last_status:
             await smart.change_condition(False)
         else:
-            if data_now["hum"] > POINT_HUM + 5:
+            if data_now["hum"] > points.POINT_HUM + 5:
                 await smart.change_condition(True)
-            elif data_now["hum"] < POINT_HUM - 5:
+            elif data_now["hum"] < points.POINT_HUM - 5:
                 await smart.change_condition(False)
 
-        if data_now["temp"] > POINT_TEMP + 1:
+        if data_now["temp"] > points.POINT_TEMP + 1:
             out_fan.set_speed(out_fan.fan_speed + 1)
-        elif data_now["temp"] < POINT_TEMP - 1:
+        elif data_now["temp"] < points.POINT_TEMP - 1:
             out_fan.set_speed(out_fan.fan_speed - 1)
 
-        data_avg = stat.statistics_for_24h()
-        o.fill(0)
-        ssd.set_textpos(o, 0, 0)
-        ssd.printstring(
-            f"TEMP/avg: {data_now['temp']:.2f}C | {data_avg['temp']:.2f}C\n"
-        )
-        ssd.printstring(f"HUM/avg:  {data_now['hum']:.2f}% | {data_avg['hum']:.2f}%\n")
-        ssd.printstring(
-            f"OUT fan speed: {out_fan.fan_speed}% | {data_avg['fan_speed']}%\n"
-        )
-        ssd.printstring(f"VPD: {data_now['vpd']:.2f} avg: {data_avg['vpd']:.2f}\n")
-        ssd.printstring(f"ram free: {gc.mem_free()} bytes\n")
-        o.show()
+        data_avg = await stat.statistics_for_24h()
+        # o.fill(0)
+        # ssd.set_textpos(o, 0, 0)
+        # ssd.printstring(
+        #     f"TEMP/avg: {data_now['temp']:.2f}C | {data_avg['temp']:.2f}C\n"
+        # )
+        # ssd.printstring(f"HUM/avg:  {data_now['hum']:.2f}% | {data_avg['hum']:.2f}%\n")
+        # ssd.printstring(
+        #     f"OUT fan speed: {out_fan.fan_speed}% | {data_avg['fan_speed']}%\n"
+        # )
+        # ssd.printstring(f"VPD: {data_now['vpd']:.2f} avg: {data_avg['vpd']:.2f}\n")
+        # ssd.printstring(f"ram free: {gc.mem_free()} bytes\n")
+        # o.show()
         gc.collect()
 
         await asyncio.sleep(2.5 * 60)
@@ -118,7 +124,7 @@ async def main_loop():
 async def main():
     server = asyncio.create_task(app.start_server(port=80, debug=True))
 
-    asyncio.create_task(antidead_signal())
+    # asyncio.create_task(antidead_signal())
     asyncio.create_task(main_loop())
 
     await server

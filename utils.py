@@ -1,4 +1,5 @@
 import math
+import json
 import time
 
 
@@ -41,7 +42,7 @@ class Statistics:
             else:
                 return
 
-    def statistics_for_24h(self) -> dict[str, float]:
+    async def statistics_for_24h(self) -> dict[str, float]:
         self.__delete_outdated_data()
         temp_avg, hum_avg, vpd_avg, avg_fan_speed = 0, 0, 0, 0
         num = 0
@@ -62,3 +63,23 @@ class Statistics:
         res["vpd"] = vpd_avg / num
         res["fan_speed"] = avg_fan_speed / num
         return res
+
+
+class Points:
+    def __init__(self) -> None:
+        self.POINT_TEMP = 0
+        self.POINT_HUM = 0
+
+    async def get_data(self):
+        """return: {temp: int, hum: int}"""
+        with open("points.json", "r") as file:
+            return json.loads(file.read())
+
+    async def change_data(self, data: dict):
+        with open("points.json", "w") as file:
+            file.write(json.dumps(data))
+
+    async def update_data_in_class(self):
+        data = await self.get_data()
+        self.POINT_TEMP = data["temp"]
+        self.POINT_HUM = data["hum"]
