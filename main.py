@@ -64,8 +64,15 @@ async def history(request):
 
 @app.route("/set_points", methods=["POST"])
 async def set_points(request):
-    await points.change_data(json.loads(request.body))
-    await points.update_data_in_class()
+    data = json.loads(request.body)
+
+    if "temp" in data and "hum" in data:
+        await points.change_data(data)
+        await points.update_data_in_class()
+        # Оновлюємо глобальний об'єкт points.data
+        return {"status": "success"}
+    else:
+        return {"status": "error", "message": "Неправильні дані"}, 400
 
 
 @app.route("/chart.js")
