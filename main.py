@@ -1,4 +1,5 @@
 import asyncio
+import random
 import json
 import time
 import gc
@@ -8,7 +9,7 @@ from machine import Pin, I2C
 from micropython_sht4x import sht4x
 
 from fan_control import FanControl
-from smartplug import SmarkPlugContorl
+from database import Database
 import utils
 
 from ssd1306 import SSD1306_I2C
@@ -27,9 +28,9 @@ out_fan.set_speed(0)
 Response.default_content_type = "text/html"
 app = Microdot()
 
-smart = SmarkPlugContorl()
-stat = utils.Statistics()
+# smart = SmarkPlugContorl()
 points = utils.Points()
+db = Database()
 
 
 data_now = {"temp": 0, "hum": 0, "vpd": 0}
@@ -56,12 +57,6 @@ async def data(request):
     return data_now
 
 
-@app.route("/history")
-async def history(request):
-    gc.collect()
-    return stat.data
-
-
 @app.route("/set_points", methods=["POST"])
 async def set_points(request):
     data = json.loads(request.body)
@@ -86,52 +81,53 @@ async def min_js(request):
 
 
 async def main_loop():
-    await points.update_data_in_class()
+    # await points.update_data_in_class()
+    start = time.time()
     while True:
-        data_now["temp"], data_now["hum"] = sht.measurements
+        data_now["temp"], data_now["hum"] = (
+            random.uniform(20, 29),
+            random.uniform(60, 90),
+        )  # sht.measurements
         data_now["vpd"] = utils.vpd_calculator(data_now["temp"], data_now["hum"])
 
-        stat.data["time"].append(time.time())
-        stat.data["temp"].append(data_now["temp"])
-        stat.data["hum"].append(data_now["hum"])
-        stat.data["vpd"].append(data_now["vpd"])
-        stat.data["fan_speeds"].append(out_fan.fan_speed)
+        await db.put(
+            time=time.time(),
+            temp=data_now["temp"],
+            hum=data_now["hum"],
+            fan_speed=out_fan.fan_speed,
+            vpd=data_now["vpd"],
+        )
 
-        if int(data_now["hum"]) == points.POINT_HUM and not smart.last_status:
-            await smart.change_condition(False)
-        else:
-            if data_now["hum"] > points.POINT_HUM + 5:
-                await smart.change_condition(True)
-            elif data_now["hum"] < points.POINT_HUM - 5:
-                await smart.change_condition(False)
+        # if int(data_now["hum"]) == points.POINT_HUM and not smart.last_status:
+        #     await smart.change_condition(False)
+        # else:
+        #     if data_now["hum"] > points.POINT_HUM + 5:
+        #         await smart.change_condition(True)
+        #     elif data_now["hum"] < points.POINT_HUM - 5:
+        #         await smart.change_condition(False)
 
-        if data_now["temp"] > points.POINT_TEMP + 1:
+        if data_now["temp"] > points.POINT_TEMP:
             out_fan.set_speed(out_fan.fan_speed + 1)
-        elif data_now["temp"] < points.POINT_TEMP - 1:
+        elif data_now["temp"] < points.POINT_TEMP:
             out_fan.set_speed(out_fan.fan_speed - 1)
 
-        data_avg = await stat.statistics_for_24h()
         o.fill(0)
         ssd.set_textpos(o, 0, 0)
-        ssd.printstring(
-            f"TEMP/avg: {data_now['temp']:.2f}C | {data_avg['temp']:.2f}C\n"
-        )
-        ssd.printstring(f"HUM/avg:  {data_now['hum']:.2f}% | {data_avg['hum']:.2f}%\n")
-        ssd.printstring(
-            f"OUT fan speed: {out_fan.fan_speed}% | {data_avg['fan_speed']}%\n"
-        )
-        ssd.printstring(f"VPD: {data_now['vpd']:.2f} avg: {data_avg['vpd']:.2f}\n")
+        ssd.printstring(f"TEMP/avg: {data_now['temp']:.2f}C\n")
+        ssd.printstring(f"HUM/avg:  {data_now['hum']:.2f}%\n")
+        ssd.printstring(f"OUT fan speed: {out_fan.fan_speed}%\n")
+        ssd.printstring(f"VPD: {data_now['vpd']:.2f}\n")
         ssd.printstring(f"ram free: {gc.mem_free()} bytes\n")
         o.show()
         gc.collect()
 
-        await asyncio.sleep(2.5 * 60)
+        await asyncio.sleep(60 - (time.time() - start))
 
 
 async def main():
     server = asyncio.create_task(app.start_server(port=80, debug=True))
 
-    # asyncio.create_task(antidead_signal())
+    asyncio.create_task(antidead_signal())
     asyncio.create_task(main_loop())
 
     await server
