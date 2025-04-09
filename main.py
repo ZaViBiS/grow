@@ -82,46 +82,41 @@ async def min_js(request):
 
 async def main_loop():
     # await points.update_data_in_class()
-    start = time.time()
-    while True:
-        data_now["temp"], data_now["hum"] = (
-            random.uniform(20, 29),
-            random.uniform(60, 90),
-        )  # sht.measurements
-        data_now["vpd"] = utils.vpd_calculator(data_now["temp"], data_now["hum"])
+    try:
+        while True:
+            start = time.time()
+            data_now["temp"], data_now["hum"] = (
+                random.uniform(20, 29),
+                random.uniform(60, 90),
+            )  # sht.measurements
+            data_now["vpd"] = utils.vpd_calculator(data_now["temp"], data_now["hum"])
 
-        await db.put(
-            time=time.time(),
-            temp=data_now["temp"],
-            hum=data_now["hum"],
-            fan_speed=out_fan.fan_speed,
-            vpd=data_now["vpd"],
-        )
+            await db.put(
+                time=time.time(),
+                temp=data_now["temp"],
+                hum=data_now["hum"],
+                fan_speed=out_fan.fan_speed,
+                vpd=data_now["vpd"],
+            )
 
-        # if int(data_now["hum"]) == points.POINT_HUM and not smart.last_status:
-        #     await smart.change_condition(False)
-        # else:
-        #     if data_now["hum"] > points.POINT_HUM + 5:
-        #         await smart.change_condition(True)
-        #     elif data_now["hum"] < points.POINT_HUM - 5:
-        #         await smart.change_condition(False)
+            if data_now["temp"] > points.POINT_TEMP:
+                out_fan.set_speed(out_fan.fan_speed + 1)
+            elif data_now["temp"] < points.POINT_TEMP:
+                out_fan.set_speed(out_fan.fan_speed - 1)
 
-        if data_now["temp"] > points.POINT_TEMP:
-            out_fan.set_speed(out_fan.fan_speed + 1)
-        elif data_now["temp"] < points.POINT_TEMP:
-            out_fan.set_speed(out_fan.fan_speed - 1)
+            o.fill(0)
+            ssd.set_textpos(o, 0, 0)
+            ssd.printstring(f"TEMP/avg: {data_now['temp']:.2f}C\n")
+            ssd.printstring(f"HUM/avg:  {data_now['hum']:.2f}%\n")
+            ssd.printstring(f"OUT fan speed: {out_fan.fan_speed}%\n")
+            ssd.printstring(f"VPD: {data_now['vpd']:.2f}\n")
+            ssd.printstring(f"ram free: {gc.mem_free()} bytes\n")
+            o.show()
+            gc.collect()
 
-        o.fill(0)
-        ssd.set_textpos(o, 0, 0)
-        ssd.printstring(f"TEMP/avg: {data_now['temp']:.2f}C\n")
-        ssd.printstring(f"HUM/avg:  {data_now['hum']:.2f}%\n")
-        ssd.printstring(f"OUT fan speed: {out_fan.fan_speed}%\n")
-        ssd.printstring(f"VPD: {data_now['vpd']:.2f}\n")
-        ssd.printstring(f"ram free: {gc.mem_free()} bytes\n")
-        o.show()
-        gc.collect()
-
-        await asyncio.sleep(60 - (time.time() - start))
+            await asyncio.sleep(60 - (time.time() - start))
+    except Exception as e:
+        utils.log(e)
 
 
 async def main():
