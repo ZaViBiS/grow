@@ -17,7 +17,7 @@ from writer import Writer
 import tuny
 
 # I2C
-i2c = I2C(0, sda=Pin(8), scl=Pin(9), freq=100_000)
+i2c = I2C(0, sda=Pin(8), scl=Pin(9), freq=100000)
 sht = sht4x.SHT4X(i2c)
 o = SSD1306_I2C(128, 64, i2c)
 ssd = Writer(o, tuny)
@@ -85,10 +85,7 @@ async def main_loop():
     try:
         while True:
             start = time.time()
-            data_now["temp"], data_now["hum"] = (
-                random.uniform(20, 29),
-                random.uniform(60, 90),
-            )  # sht.measurements
+            data_now["temp"], data_now["hum"] = sht.measurements
             data_now["vpd"] = utils.vpd_calculator(data_now["temp"], data_now["hum"])
 
             await db.put(
@@ -114,7 +111,7 @@ async def main_loop():
             o.show()
             gc.collect()
 
-            await asyncio.sleep(60 - (time.time() - start))
+            await asyncio.sleep(20 - (time.time() - start))
     except Exception as e:
         utils.log(e)
 
