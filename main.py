@@ -81,7 +81,7 @@ async def min_js(request):
 
 
 async def main_loop():
-    # await points.update_data_in_class()
+    await points.update_data_in_class()
     try:
         while True:
             start = time.time()
@@ -96,9 +96,9 @@ async def main_loop():
                 vpd=data_now["vpd"],
             )
 
-            if data_now["temp"] > points.POINT_TEMP:
+            if data_now["temp"] > points.POINT_TEMP + 0.1:
                 out_fan.set_speed(out_fan.fan_speed + 1)
-            elif data_now["temp"] < points.POINT_TEMP:
+            elif data_now["temp"] < points.POINT_TEMP - 0.1:
                 out_fan.set_speed(out_fan.fan_speed - 1)
 
             o.fill(0)

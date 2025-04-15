@@ -27,7 +27,7 @@ def vpd_calculator(temp, rh):
     """
     svp = saturation_vapor_pressure(temp)
     avp = svp * (rh / 100)
-    return svp - avp
+    return round(svp - avp, 2)
 
 
 class Statistics:
@@ -36,7 +36,7 @@ class Statistics:
 
     def __delete_outdated_data(self) -> None:
         for x in self.data["time"]:
-            if x < time.time() - (24 * 60 * 60):  # 24h
+            if x < time.time() - (12 * 60 * 60):  # 24h
                 del self.data["time"][self.data["time"].index(x)]
                 return
             else:
