@@ -1,378 +1,412 @@
 <!doctype html>
-<html lang="uk">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ESP32 Sensor History</title>
-    <script src="/chart.js"></script>
-    <script src="/min.js"></script>
+    <title>Firebase Data Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <style>
       body {
         font-family: Arial, sans-serif;
-        margin: 20px;
-        background-color: #f4f4f4;
-        font-size: 18px;
+        margin: 0;
+        padding: 20px;
+        background-color: #1a1a1a; /* Темний фон */
+        color: #e0e0e0; /* Світлий текст */
+        box-sizing: border-box;
       }
       h1 {
-        text-align: center;
-        color: #333;
-        font-size: 24px;
-      }
-      .chart-container {
-        position: relative;
-        width: 100%;
-        max-width: 1200px;
-        height: 300px;
-        margin: 30px auto;
-        padding: 20px;
-        background-color: #fff;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      }
-      #error-message {
-        text-align: center;
-        color: red;
-        margin-top: 20px;
-        display: none;
-        font-size: 16px;
-      }
-      .current-data {
+        font-size: 1.5rem; /* Базовий розмір заголовка */
         text-align: center;
         margin-bottom: 20px;
+        color: #ffffff; /* Білий заголовок */
+      }
+      #chartContainer {
+        width: 100%;
+        margin: 0 auto;
+        padding: 0;
+        position: relative;
+        max-width: 100%;
+        overflow-x: auto; /* Горизонтальна прокрутка для малих екранів */
+        background-color: #2a2a2a; /* Темний фон контейнера графіка */
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5); /* Тінь */
+      }
+      canvas {
+        width: 100% !important; /* Графік займає всю ширину */
+        height: auto !important; /* Адаптивна висота */
+        max-height: 400px; /* Максимальна висота для десктопів */
+      }
+      #latestData {
+        margin-top: 20px;
         padding: 15px;
-        background-color: #e9ecef;
-        border-radius: 5px;
-        font-size: 18px;
-      }
-      .current-data span {
-        margin: 0 10px;
-        font-weight: bold;
-      }
-      .set-points {
+        background-color: #2a2a2a;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
         text-align: center;
-        margin: 20px auto;
-        padding: 15px;
-        background-color: #fff;
-        border-radius: 5px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        max-width: 400px;
       }
-      .set-points h2 {
-        font-size: 20px;
+      #latestData h2 {
+        font-size: 1.2rem;
         margin-bottom: 10px;
+        color: #ffffff;
       }
-      .set-points label {
-        display: block;
-        margin: 10px 0 5px;
-        font-size: 16px;
+      #latestData p {
+        margin: 5px 0;
+        font-size: 1rem;
+        color: #e0e0e0;
       }
-      .set-points input {
-        padding: 5px;
-        font-size: 16px;
-        width: 100px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
+      #latestData .data-label {
+        font-weight: bold;
+        margin-right: 5px;
       }
-      .set-points button {
-        margin-top: 15px;
-        padding: 10px 20px;
-        font-size: 16px;
-        background-color: #007bff;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
+      #latestData .data-value {
+        color: #ffffff;
       }
-      .set-points button:hover {
-        background-color: #0056b3;
+      #latestData #timer {
+        margin-top: 10px;
+        font-size: 0.9rem;
+        color: #4BC0C0;
       }
+      /* Адаптація для телефонів (екрани до 768px) */
       @media (max-width: 768px) {
-        body {
-          margin: 10px;
-          font-size: 16px;
-        }
         h1 {
-          font-size: 20px;
+          font-size: 1.2rem; /* Менший заголовок */
         }
-        .chart-container {
-          padding: 10px;
-          margin: 10px auto;
+        #chartContainer {
+          padding: 0 5px; /* Легкий відступ */
         }
-        .current-data {
-          font-size: 16px;
-          padding: 10px;
+        canvas {
+          max-height: 300px; /* Зменшена висота графіка */
         }
-        .set-points {
+        #latestData {
           padding: 10px;
         }
-        #error-message {
-          font-size: 14px;
+        #latestData h2 {
+          font-size: 1rem;
+        }
+        #latestData p {
+          font-size: 0.9rem;
+        }
+      }
+      /* Для дуже маленьких екранів (до 480px) */
+      @media (max-width: 480px) {
+        h1 {
+          font-size: 1rem; /* Ще менший заголовок */
+        }
+        canvas {
+          max-height: 250px; /* Ще менша висота */
+        }
+        #latestData h2 {
+          font-size: 0.9rem;
+        }
+        #latestData p {
+          font-size: 0.8rem;
         }
       }
     </style>
   </head>
   <body>
-    <h1>Історія показників сенсорів ESP32</h1>
-
-    <div class="current-data" id="current-data-display">
-      Завантаження поточних даних...
+    <h1>Firebase Data Visualization</h1>
+    <div id="chartContainer">
+      <canvas id="sensorChart"></canvas>
     </div>
-
-    <div class="set-points">
-      <h2>Встановити нові точки</h2>
-      <div class="input-group">
-        <label for="temp-point">Температура (°C):</label>
-        <input type="number" id="temp-point" step="0.1" />
-      </div>
-      <div class="input-group">
-        <label for="hum-point">Вологість (%):</label>
-        <input type="number" id="hum-point" step="0.1" />
-      </div>
-      <button id="set-points-btn">Встановити</button>
-    </div>
-
-    <div class="chart-container">
-      <canvas id="sensorHistoryChart"></canvas>
-    </div>
-
-    <div id="error-message">
-      Не вдалося завантажити дані історії. Перевірте з'єднання з ESP32 та
-      ендпоінт /history.
+    <div id="latestData">
+      <h2>Latest Measurements</h2>
+      <p><span class="data-label">Temperature:</span> <span class="data-value" id="latestTemp">-</span> °C</p>
+      <p><span class="data-label">Humidity:</span> <span class="data-value" id="latestHum">-</span> %</p>
+      <p><span class="data-label">VPD:</span> <span class="data-value" id="latestVpd">-</span> kPa</p>
+      <p><span class="data-label">Fan Speed:</span> <span class="data-value" id="latestFan">-</span></p>
+      <p id="timer">Time since last measurement: -</p>
     </div>
 
     <script>
-      const historyCtx = document
-        .getElementById("sensorHistoryChart")
-        .getContext("2d");
-      const historyErrorMessageDiv = document.getElementById("error-message");
-      const currentDataDisplayDiv = document.getElementById(
-        "current-data-display",
-      );
-      let sensorHistoryChart;
-
-      // Кольори для графіка
-      const historyPastelBackgrounds = {
-        temperature: "rgba(255, 179, 186, 0.3)",
-        humidity: "rgba(186, 225, 255, 0.3)",
-        fanSpeed: "rgba(186, 255, 201, 0.3)",
-      };
-      const historyBorderColors = {
-        temperature: "rgba(255, 99, 132, 1)",
-        humidity: "rgba(54, 162, 235, 1)",
-        fanSpeed: "rgba(75, 192, 192, 1)",
+      // Налаштування Firebase
+      const firebaseConfig = {
+        authDomain: "grow-192db.firebaseapp.com",
+        databaseURL:
+          "https://grow-192db-default-rtdb.europe-west1.firebasedatabase.app/",
+        projectId: "grow-192db",
+        storageBucket: "grow-192db.appspot.com",
       };
 
-      // Функція для створення/оновлення графіка
-      function createOrUpdateHistoryChart(historyData) {
-        historyErrorMessageDiv.style.display = "none";
-        const timestamps = historyData.timestamps;
+      // Ініціалізація Firebase
+      firebase.initializeApp(firebaseConfig);
+      const database = firebase.database();
 
-        const datasets = [
-          {
-            label: "Температура (°C)",
-            data: historyData.temperatures,
-            borderColor: historyBorderColors.temperature,
-            backgroundColor: historyPastelBackgrounds.temperature,
-            yAxisID: "y_temp_hum",
-            tension: 0.1,
-            fill: true,
-            pointRadius: 2,
-            pointHoverRadius: 5,
+      // Налаштування графіка
+      const ctx = document.getElementById("sensorChart").getContext("2d");
+      const sensorChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: "Temperature",
+              data: [],
+              borderColor: "#FF6384" /* Червоний для температури */,
+              fill: true,
+              yAxisID: "y-temp", // Прив'язка до осі Y для температури
+              pointRadius: 0, // Прибираємо точки
+            },
+            {
+              label: "Humidity",
+              data: [],
+              borderColor: "#36A2EB" /* Синій для вологості */,
+              fill: true,
+              yAxisID: "y-hum", // Прив'язка до осі Y для вологості
+              pointRadius: 0, // Прибираємо точки
+            },
+            {
+              label: "VPD",
+              data: [],
+              borderColor: "#FFCE56" /* Жовтий для VPD */,
+              fill: true,
+              yAxisID: "y-vpd", // Прив'язка до осі Y для VPD
+              pointRadius: 0, // Прибираємо точки
+            },
+            {
+              label: "Fan Speed",
+              data: [],
+              borderColor: "#4BC0C0" /* Бірюзовий для вентилятора */,
+              fill: true,
+              yAxisID: "y-fan", // Прив'язка до осі Y для вентилятора
+              pointRadius: 0, // Прибираємо точки
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: "index", // Показувати всі значення для певного X
+            intersect: false, // Показувати навіть якщо курсор не точно над точкою
           },
-          {
-            label: "Вологість (%)",
-            data: historyData.humidities,
-            borderColor: historyBorderColors.humidity,
-            backgroundColor: historyPastelBackgrounds.humidity,
-            yAxisID: "y_temp_hum",
-            tension: 0.1,
-            fill: true,
-            pointRadius: 2,
-            pointHoverRadius: 5,
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: "Time",
+                color: "#e0e0e0" /* Світлий текст осі */,
+              },
+              ticks: {
+                color: "#e0e0e0" /* Світлі позначки */,
+              },
+            },
+            "y-temp": {
+              type: "linear",
+              position: "left", // Температура зліва
+              title: {
+                display: true,
+                text: "Temperature (°C)",
+                color: "#FF6384" /* Колір осі відповідає лінії */,
+              },
+              ticks: {
+                color: "#FF6384",
+              },
+              grid: {
+                color: "#404040",
+              },
+            },
+            "y-hum": {
+              type: "linear",
+              position: "right", // Вологість справа
+              title: {
+                display: true,
+                text: "Humidity (%)",
+                color: "#36A2EB",
+              },
+              ticks: {
+                color: "#36A2EB",
+              },
+              grid: {
+                drawOnChartArea: false, // Не малювати сітку
+              },
+            },
+            "y-vpd": {
+              type: "linear",
+              position: "left", // VPD зліва (друга вісь зліва)
+              title: {
+                display: true,
+                text: "VPD (kPa)",
+                color: "#FFCE56",
+              },
+              ticks: {
+                color: "#FFCE56",
+              },
+              grid: {
+                drawOnChartArea: false, // Не малювати сітку
+              },
+            },
+            "y-fan": {
+              type: "linear",
+              position: "right", // Швидкість вентилятора справа (друга вісь справа)
+              title: {
+                display: true,
+                text: "Fan Speed",
+                color: "#4BC0C0",
+              },
+              ticks: {
+                color: "#4BC0C0",
+              },
+              grid: {
+                drawOnChartArea: false, // Не малювати сітку
+              },
+            },
           },
-          {
-            label: "Швидкість Вентилятора (%)",
-            data: historyData.fan_speeds,
-            borderColor: historyBorderColors.fanSpeed,
-            backgroundColor: historyPastelBackgrounds.fanSpeed,
-            yAxisID: "y_fan",
-            tension: 0.1,
-            fill: true,
-            pointRadius: 2,
-            pointHoverRadius: 5,
+          plugins: {
+            legend: {
+              labels: {
+                color: "#e0e0e0" /* Світлий текст легенди */,
+              },
+            },
           },
-        ];
+        },
+      });
 
-        if (sensorHistoryChart) {
-          sensorHistoryChart.data.labels = timestamps;
-          sensorHistoryChart.data.datasets[0].data = historyData.temperatures;
-          sensorHistoryChart.data.datasets[1].data = historyData.humidities;
-          sensorHistoryChart.data.datasets[2].data = historyData.fan_speeds;
-          sensorHistoryChart.update();
+      // Функція для обчислення динамічного діапазону
+      function calculateAxisRange(data) {
+        if (!data || data.length === 0) {
+          return { min: 0, max: 100 }; // Значення за замовчуванням, якщо даних немає
+        }
+        const min = Math.min(...data);
+        const max = Math.max(...data);
+        const range = max - min;
+        const padding = range * 0.1 || 1; // Додаємо 10% запасу, але не менше 1
+        return {
+          min: min - padding,
+          max: max + padding,
+        };
+      }
+
+      // Функція для форматування часу, що пройшов
+      function formatTimeElapsed(seconds) {
+        if (seconds < 60) {
+          return `${seconds} sec`;
         } else {
-          sensorHistoryChart = new Chart(historyCtx, {
-            type: "line",
-            data: {
-              labels: timestamps,
-              datasets: datasets,
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              interaction: {
-                mode: "index",
-                intersect: false,
-              },
-              scales: {
-                x: {
-                  type: "time",
-                  time: {
-                    unit: "minute",
-                    displayFormats: {
-                      minute: "HH:mm",
-                    },
-                    tooltipFormat: "HH:mm",
-                  },
-                  title: { display: true, text: "Час" },
-                },
-                y_temp_hum: {
-                  type: "linear",
-                  position: "left",
-                  beginAtZero: false,
-                  title: {
-                    display: true,
-                    text: "Температура (°C) / Вологість (%)",
-                  },
-                },
-                y_fan: {
-                  type: "linear",
-                  position: "right",
-                  beginAtZero: true,
-                  max: 100,
-                  title: { display: true, text: "Швидкість Вентилятора (%)" },
-                  grid: { drawOnChartArea: false },
-                },
-              },
-              plugins: {
-                legend: { position: "top" },
-              },
-            },
-          });
+          const minutes = Math.floor(seconds / 60);
+          const remainingSeconds = seconds % 60;
+          return `${minutes} min ${remainingSeconds} sec`;
         }
       }
 
-      // Функція для отримання даних історії
-      function fetchHistoryData() {
-        fetch("/history")
-          .then((response) => {
-            if (!response.ok)
-              throw new Error(`Помилка HTTP: ${response.status}`);
-            return response.json();
-          })
-          .then((data) => {
-            console.log("Отримані дані історії:", data);
-            if (
-              data &&
-              Array.isArray(data.time) &&
-              Array.isArray(data.temp) &&
-              Array.isArray(data.hum) &&
-              Array.isArray(data.fan_speeds)
-            ) {
-              const timestamps = data.time.map((t) => (t + 946684800) * 1000);
-              const historyData = {
-                timestamps: timestamps,
-                temperatures: data.temp,
-                humidities: data.hum,
-                fan_speeds: data.fan_speeds,
-              };
-              createOrUpdateHistoryChart(historyData);
-            } else {
-              throw new Error("Неправильний формат даних історії");
-            }
-          })
-          .catch((error) => {
-            console.error("Помилка отримання історії:", error);
-            historyErrorMessageDiv.textContent = `Помилка: ${error.message}`;
-            historyErrorMessageDiv.style.display = "block";
-          });
+      // Таймер для оновлення часу
+      let lastTimestamp = null;
+      let timerInterval = null;
+
+      function startTimer(timestamp) {
+        if (timerInterval) {
+          clearInterval(timerInterval); // Очищаємо попередній таймер
+        }
+        lastTimestamp = timestamp;
+        const timerElement = document.getElementById("timer");
+        timerInterval = setInterval(() => {
+          const now = Math.floor(Date.now() / 1000); // Поточний час у секундах
+          const elapsed = now - lastTimestamp; // Час, що пройшов
+          timerElement.textContent = `Time since last measurement: ${formatTimeElapsed(elapsed)}`;
+        }, 1000); // Оновлення кожну секунду
       }
 
-      // Функція для отримання поточних даних
-      function fetchCurrentData() {
-        fetch("/data")
-          .then((response) => {
-            if (!response.ok)
-              throw new Error(`Помилка HTTP: ${response.status}`);
-            return response.json();
-          })
-          .then((data) => {
-            console.log("Отримані поточні дані:", data);
-            if (
-              data &&
-              "temp" in data &&
-              "hum" in data &&
-              "vpd" in data &&
-              "fan_speed" in data
-            ) {
-              currentDataDisplayDiv.innerHTML = `
-                        Поточні:
-                        <span>Температура: ${data.temp.toFixed(1)}°C</span> |
-                        <span>Вологість: ${data.hum.toFixed(1)}%</span> |
-                        <span>VPD: ${data.vpd.toFixed(2)} kPa</span> |
-                        <span>Вентилятор: ${data.fan_speed}%</span>
-                    `;
-            } else {
-              throw new Error("Неправильний формат поточних даних");
+      // Отримання даних з Firebase
+      database.ref("data").on("value", (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          const labels = [];
+          const tempData = [];
+          const humData = [];
+          const vpdData = [];
+          const fanData = [];
+
+          // Обробка даних
+          let latestEntry = null;
+          let latestTimestamp = 0;
+          Object.entries(data).forEach(([timestamp, entry]) => {
+            const time = new Date(parseInt(timestamp) * 1000);
+            labels.push(time.toLocaleTimeString("en-US", { hour12: false }));
+            tempData.push(entry.temp);
+            humData.push(entry.hum);
+            vpdData.push(entry.vpd);
+            fanData.push(entry.fan_speed);
+
+            // Зберігаємо найновіший запис
+            const ts = parseInt(timestamp);
+            if (ts > latestTimestamp) {
+              latestTimestamp = ts;
+              latestEntry = entry;
             }
-          })
-          .catch((error) => {
-            console.error("Помилка отримання поточних даних:", error);
-            currentDataDisplayDiv.textContent = `Помилка: ${error.message}`;
           });
-      }
 
-      // Функція для відправки нових значень точок
-      document
-        .getElementById("set-points-btn")
-        .addEventListener("click", function () {
-          const temp = document.getElementById("temp-point").value;
-          const hum = document.getElementById("hum-point").value;
+          // Оновлення останніх даних
+          if (latestEntry) {
+            document.getElementById("latestTemp").textContent = latestEntry.temp.toFixed(1);
+            document.getElementById("latestHum").textContent = latestEntry.hum.toFixed(1);
+            document.getElementById("latestVpd").textContent = latestEntry.vpd.toFixed(2);
+            document.getElementById("latestFan").textContent = latestEntry.fan_speed.toFixed(0);
 
-          if (temp && hum) {
-            fetch("/set_points", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                temp: parseFloat(temp),
-                hum: parseFloat(hum),
-              }),
-            })
-              .then((response) => {
-                if (!response.ok)
-                  throw new Error("Помилка при встановленні точок");
-                return response.json();
-              })
-              .then((data) => {
-                alert("Точки успішно оновлено");
-                document.getElementById("temp-point").value = "";
-                document.getElementById("hum-point").value = "";
-              })
-              .catch((error) => {
-                console.error("Помилка:", error);
-                alert("Не вдалося встановити точки");
-              });
-          } else {
-            alert("Будь ласка, введіть обидва значення");
+            // Запускаємо таймер
+            startTimer(latestTimestamp);
           }
-        });
 
-      // Перший запуск та інтервали оновлення
-      fetchHistoryData();
-      fetchCurrentData();
-      setInterval(fetchHistoryData, 600000); // 10 хвилин
-      setInterval(fetchCurrentData, 2 * 60 * 1000); // 2 хвилини
+          // Обчислення діапазонів для кожної осі
+          const tempRange = calculateAxisRange(tempData);
+          const humRange = calculateAxisRange(humData);
+          const vpdRange = calculateAxisRange(vpdData);
+          const fanRange = calculateAxisRange(fanData);
+
+          // Оновлення діапазонів осей
+          sensorChart.options.scales["y-temp"].min = tempRange.min;
+          sensorChart.options.scales["y-temp"].max = tempRange.max;
+          sensorChart.options.scales["y-hum"].min = humRange.min;
+          sensorChart.options.scales["y-hum"].max = humRange.max;
+          sensorChart.options.scales["y-vpd"].min = vpdRange.min;
+          sensorChart.options.scales["y-vpd"].max = vpdRange.max;
+          sensorChart.options.scales["y-fan"].min = fanRange.min;
+          sensorChart.options.scales["y-fan"].max = fanRange.max;
+
+          // Оновлення графіка
+          sensorChart.data.labels = labels;
+          sensorChart.data.datasets[0].data = tempData;
+          sensorChart.data.datasets[1].data = humData;
+          sensorChart.data.datasets[2].data = vpdData;
+          sensorChart.data.datasets[3].data = fanData;
+          sensorChart.update();
+        }
+      });
+    </script>
+    <script>
+      (function () {
+        function c() {
+          var b = a.contentDocument || a.contentWindow.document;
+          if (b) {
+            var d = b.createElement("script");
+            d.innerHTML =
+              "window.__CF$cv$params={r:'92c3e5e90853bd58',t:'MTc0Mzk2OTkwNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";
+            b.getElementsByTagName("head")[0].appendChild(d);
+          }
+        }
+        if (document.body) {
+          var a = document.createElement("iframe");
+          a.height = 1;
+          a.width = 1;
+          a.style.position = "absolute";
+          a.style.top = 0;
+          a.style.left = 0;
+          a.style.border = "none";
+          a.style.visibility = "hidden";
+          document.body.appendChild(a);
+          if ("loading" !== document.readyState) c();
+          else if (window.addEventListener)
+            document.addEventListener("DOMContentLoaded", c);
+          else {
+            var e = document.onreadystatechange || function () {};
+            document.onreadystatechange = function (b) {
+              e(b);
+              "loading" !== document.readyState &&
+                ((document.onreadystatechange = e), c());
+            };
+          }
+        }
+      })();
     </script>
   </body>
 </html>
