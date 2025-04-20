@@ -83,3 +83,16 @@ class Points:
         data = await self.get_data()
         self.POINT_TEMP = data["temp"]
         self.POINT_HUM = data["hum"]
+
+
+def append_to_file(text, filename):
+    """
+    Додає переданий текст у кінець файлу.
+    Якщо файл не існує - створює новий файл.
+
+    Аргументи:
+        text (str): Текст для запису
+        filename (str): Шлях до файлу
+    """
+    with open(filename, "a", encoding="utf-8") as file:
+        file.write(text)
