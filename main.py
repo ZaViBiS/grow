@@ -1,6 +1,8 @@
 import asyncio
+import json
 import time
 import gc
+import os
 
 from machine import Pin, I2C, reset
 from micropython_sht4x import sht4x
@@ -24,16 +26,43 @@ async def main_loop():
 
     await points.update_data_in_class()
     while True:
-        start = time.time()
+        now = time.time()
         temp, hum = sht.measurements
+        vpd = utils.vpd_calculator(temp, hum)
 
-        await db.put(
-            time=time.time(),
-            temp=temp,
-            hum=hum,
-            fan_speed=out_fan.fan_speed,
-            vpd=utils.vpd_calculator(temp, hum),
-        )
+        try:
+            print(1)
+            await db.put(
+                time=int(now), temp=temp, hum=hum, fan_speed=out_fan.fan_speed, vpd=vpd
+            )
+            print(2)
+            datalistdir = os.listdir("/data")
+            if datalistdir:
+                with open("/data/" + datalistdir[0], "r") as f:
+                    data = json.loads(f.read())
+                os.remove("/data/" + datalistdir[0])
+
+                await db.put(
+                    time=data["time"],
+                    temp=data["temp"],
+                    hum=data["hum"],
+                    fan_speed=data["fan_speed"],
+                    vpd=data["vpd"],
+                )
+        except Exception as e:
+            utils.log(f"error in data sending: {e}")
+            with open(f"{now}", "w") as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "time": int(now),
+                            "temp": temp,
+                            "hum": hum,
+                            "fan_speed": out_fan.fan_speed,
+                            "vpd": vpd,
+                        }
+                    )
+                )
 
         if temp > points.POINT_TEMP + 0.1:
             out_fan.set_speed(out_fan.fan_speed + 1)
@@ -42,7 +71,7 @@ async def main_loop():
 
         gc.collect()
 
-        await asyncio.sleep(20 - (time.time() - start))
+        await asyncio.sleep(20 - (time.time() - now))
 
 
 try:

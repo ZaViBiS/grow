@@ -18,4 +18,5 @@ class Database:
             "vpd": vpd,
         }
 
-        requests.post(URL, json=data)
+        r = requests.post(URL, json=data)
+        print(r.status_code)
