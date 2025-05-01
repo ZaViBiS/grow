@@ -1,19 +1,21 @@
-import firebase
+import requests
 
-URL = "https://grow-192db-default-rtdb.europe-west1.firebasedatabase.app/"
+URL = "https://data.ygryk.de/put"
 
 
 class Database:
     def __init__(self) -> None:
-        firebase.setURL(URL)
+        pass
 
     async def put(
         self, time: int, temp: float, hum: float, fan_speed: int, vpd: float
     ) -> None:
         data = {
+            "time": time,
             "temp": temp,
             "hum": hum,
             "fan_speed": fan_speed,
             "vpd": vpd,
         }
-        firebase.put(f"/data/{time + 946684800}", data, bg=False)
+
+        requests.post(URL, json=data)
