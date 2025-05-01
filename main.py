@@ -31,24 +31,23 @@ async def main_loop():
         vpd = utils.vpd_calculator(temp, hum)
 
         try:
-            print(1)
-            await db.put(
+            if await db.put(
                 time=int(now), temp=temp, hum=hum, fan_speed=out_fan.fan_speed, vpd=vpd
-            )
-            print(2)
+            ):
+                raise
             datalistdir = os.listdir("/data")
             if datalistdir:
                 with open("/data/" + datalistdir[0], "r") as f:
                     data = json.loads(f.read())
-                os.remove("/data/" + datalistdir[0])
 
-                await db.put(
+                if await db.put(
                     time=data["time"],
                     temp=data["temp"],
                     hum=data["hum"],
                     fan_speed=data["fan_speed"],
                     vpd=data["vpd"],
-                )
+                ):
+                    os.remove("/data/" + datalistdir[0])
         except Exception as e:
             utils.log(f"error in data sending: {e}")
             with open(f"{now}", "w") as f:

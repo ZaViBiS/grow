@@ -9,7 +9,7 @@ class Database:
 
     async def put(
         self, time: int, temp: float, hum: float, fan_speed: int, vpd: float
-    ) -> None:
+    ) -> bool:
         data = {
             "time": time,
             "temp": temp,
@@ -19,4 +19,7 @@ class Database:
         }
 
         r = requests.post(URL, json=data)
-        print(r.status_code)
+
+        if r.status_code == 200:
+            return True
+        return False
