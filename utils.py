@@ -96,3 +96,7 @@ def append_to_file(text, filename):
     """
     with open(filename, "a", encoding="utf-8") as file:
         file.write(text)
+
+
+def get_unix_time_now(now: float) -> float:
+    return now + 946684800

@@ -26,13 +26,18 @@ async def main_loop():
 
     await points.update_data_in_class()
     while True:
-        now = time.time()
+        start = time.time()
+        unixtime = utils.get_unix_time_now(start)
         temp, hum = sht.measurements
         vpd = utils.vpd_calculator(temp, hum)
 
         try:
             if await db.put(
-                time=int(now), temp=temp, hum=hum, fan_speed=out_fan.fan_speed, vpd=vpd
+                time=int(unixtime),
+                temp=temp,
+                hum=hum,
+                fan_speed=out_fan.fan_speed,
+                vpd=vpd,
             ):
                 raise
             datalistdir = os.listdir("/data")
@@ -50,11 +55,11 @@ async def main_loop():
                     os.remove("/data/" + datalistdir[0])
         except Exception as e:
             utils.log(f"error in data sending: {e}")
-            with open(f"{now}", "w") as f:
+            with open(f"{unixtime}", "w") as f:
                 f.write(
                     json.dumps(
                         {
-                            "time": int(now),
+                            "time": int(unixtime),
                             "temp": temp,
                             "hum": hum,
                             "fan_speed": out_fan.fan_speed,
@@ -70,7 +75,7 @@ async def main_loop():
 
         gc.collect()
 
-        await asyncio.sleep(20 - (time.time() - now))
+        await asyncio.sleep(20 - (time.time() - start))
 
 
 try:
