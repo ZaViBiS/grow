@@ -55,7 +55,7 @@ async def main_loop():
                     os.remove("/data/" + datalistdir[0])
         except Exception as e:
             utils.log(f"error in data sending: {e}")
-            with open(f"{unixtime}", "w") as f:
+            with open(f"/data/{unixtime}", "w") as f:
                 f.write(
                     json.dumps(
                         {
