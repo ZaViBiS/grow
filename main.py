@@ -32,7 +32,7 @@ async def main_loop():
         vpd = utils.vpd_calculator(temp, hum)
 
         try:
-            if await db.put(
+            if not await db.put(
                 time=int(unixtime),
                 temp=temp,
                 hum=hum,
@@ -67,6 +67,7 @@ async def main_loop():
                         }
                     )
                 )
+            reset()
 
         if temp > points.POINT_TEMP + 0.1:
             out_fan.set_speed(out_fan.fan_speed + 1)
