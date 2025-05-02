@@ -40,19 +40,22 @@ async def main_loop():
                 vpd=vpd,
             ):
                 raise
-            datalistdir = os.listdir("/data")
-            if datalistdir:
-                with open("/data/" + datalistdir[0], "r") as f:
-                    data = json.loads(f.read())
+            try:
+                datalistdir = os.listdir("/data")
+                if datalistdir:
+                    with open("/data/" + datalistdir[0], "r") as f:
+                        data = json.loads(f.read())
 
-                if await db.put(
-                    time=data["time"],
-                    temp=data["temp"],
-                    hum=data["hum"],
-                    fan_speed=data["fan_speed"],
-                    vpd=data["vpd"],
-                ):
-                    os.remove("/data/" + datalistdir[0])
+                    if await db.put(
+                        time=data["time"],
+                        temp=data["temp"],
+                        hum=data["hum"],
+                        fan_speed=data["fan_speed"],
+                        vpd=data["vpd"],
+                    ):
+                        os.remove("/data/" + datalistdir[0])
+            except Exception as e:
+                utils.log(f"error in resending {e}")
         except Exception as e:
             utils.log(f"error in data sending: {e}")
             with open(f"/data/{unixtime}", "w") as f:
