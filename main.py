@@ -70,7 +70,8 @@ async def main_loop():
                         }
                     )
                 )
-            reset()
+            if not sta_if.isconnected():
+                reset()
 
         if temp > points.POINT_TEMP + 0.1:
             out_fan.set_speed(out_fan.fan_speed + 1)
