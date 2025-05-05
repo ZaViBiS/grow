@@ -21,5 +21,5 @@ try:
 
     gc.collect()
 except Exception as e:
-    utils.append_to_file(str(e), "log.txt")
+    print(e)
     r()

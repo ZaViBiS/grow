@@ -1,9 +1,13 @@
 import math
 import json
 import time
+import os
+from database import Database
+
+db = Database()
 
 
-def log(text: str) -> None:
+def log(text: str | Exception) -> None:
     t = time.localtime()  # Отримуємо локальний час
     date_str = "{:02}-{:02}-{:04} {:02}:{:02}:{:02}".format(
         t[2], t[1], t[0], t[3], t[4], t[5]
@@ -100,3 +104,22 @@ def append_to_file(text, filename):
 
 def get_unix_time_now(now: float) -> float:
     return now + 946684800
+
+
+async def send_missed_data():
+    datalistdir = os.listdir("/data")
+    if datalistdir:
+        for filename in datalistdir:
+            with open("/data/" + filename, "r") as f:
+                data = json.loads(f.read())
+            try:
+                if await db.put(
+                    time=data["time"],
+                    temp=data["temp"],
+                    hum=data["hum"],
+                    fan_speed=data["fan_speed"],
+                    vpd=data["vpd"],
+                ):
+                    os.remove("/data/" + datalistdir[0])
+            except Exception as e:
+                log(f"error in resending: {e}")
