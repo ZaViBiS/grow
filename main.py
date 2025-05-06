@@ -66,8 +66,12 @@ async def main_loop():
         await asyncio.sleep(20 - (time.time() - start))
 
 
+async def starter():
+    await asyncio.gather(main_loop(), utils.send_missed_data())
+
+
 try:
-    asyncio.gather(main_loop(), utils.send_missed_data())
+    asyncio.run(starter())
 except Exception as e:
     utils.log(e)
     reset()

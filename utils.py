@@ -3,6 +3,7 @@ import math
 import json
 import time
 import os
+import gc
 
 from database import Database
 
@@ -131,4 +132,6 @@ async def send_missed_data():
                         os.remove("/data/" + filename)
                 except Exception as e:
                     log(f"error in resending: {e}")
+                    gc.collect()
+                gc.collect()
         await asyncio.sleep(60 * 5)
