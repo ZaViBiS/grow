@@ -1,7 +1,9 @@
+import asyncio
 import math
 import json
 import time
 import os
+
 from database import Database
 
 db = Database()
@@ -107,19 +109,26 @@ def get_unix_time_now(now: float) -> float:
 
 
 async def send_missed_data():
-    datalistdir = os.listdir("/data")
-    if datalistdir:
-        for filename in datalistdir:
-            with open("/data/" + filename, "r") as f:
-                data = json.loads(f.read())
-            try:
-                if await db.put(
-                    time=data["time"],
-                    temp=data["temp"],
-                    hum=data["hum"],
-                    fan_speed=data["fan_speed"],
-                    vpd=data["vpd"],
-                ):
-                    os.remove("/data/" + datalistdir[0])
-            except Exception as e:
-                log(f"error in resending: {e}")
+    while True:
+        datalistdir = os.listdir("/data")
+        if datalistdir:
+            for filename in datalistdir:
+                try:
+                    with open("/data/" + filename, "r") as f:
+                        data = json.loads(f.read())
+                except Exception as e:
+                    log(f"error while reading file {filename}: {e}")
+                    os.remove("/data/" + filename)
+                    continue
+                try:
+                    if await db.put(
+                        time=data["time"],
+                        temp=data["temp"],
+                        hum=data["hum"],
+                        fan_speed=data["fan_speed"],
+                        vpd=data["vpd"],
+                    ):
+                        os.remove("/data/" + filename)
+                except Exception as e:
+                    log(f"error in resending: {e}")
+        await asyncio.sleep(60 * 5)

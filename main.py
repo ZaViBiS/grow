@@ -2,7 +2,6 @@ import asyncio
 import json
 import time
 import gc
-import os
 
 from machine import Pin, I2C, reset
 from micropython_sht4x import sht4x
@@ -20,7 +19,6 @@ async def main_loop():
     out_fan = FanControl(1)
     out_fan.set_speed(0)
 
-    # smart = SmarkPlugContorl()
     points = utils.Points()
     db = Database()
 
@@ -40,7 +38,6 @@ async def main_loop():
                 vpd=vpd,
             ):
                 raise
-            asyncio.create_task(utils.send_missed_data())
 
         except Exception as e:
             utils.log(f"error in data sending: {e}")
@@ -70,7 +67,7 @@ async def main_loop():
 
 
 try:
-    asyncio.run(main_loop())
+    asyncio.gather(main_loop(), utils.send_missed_data())
 except Exception as e:
     utils.log(e)
     reset()
