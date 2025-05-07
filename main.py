@@ -21,6 +21,7 @@ def main_loop():
 
     points = utils.Points()
     db = Database()
+    smd = utils.SendMissedData()
 
     points.update_data_in_class()
     while True:
@@ -41,18 +42,15 @@ def main_loop():
 
         except Exception as e:
             utils.log(f"error in data sending: {e}")
-            with open(f"/data/{unixtime}", "w") as f:
-                f.write(
-                    json.dumps(
-                        {
-                            "time": int(unixtime),
-                            "temp": temp,
-                            "hum": hum,
-                            "fan_speed": out_fan.fan_speed,
-                            "vpd": vpd,
-                        }
-                    )
-                )
+            smd.add_data_tothe_database(
+                {
+                    "time": int(unixtime),
+                    "temp": temp,
+                    "hum": hum,
+                    "fan_speed": out_fan.fan_speed,
+                    "vpd": vpd,
+                }
+            )
             if not sta_if.isconnected():
                 reset()
 
