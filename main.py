@@ -42,7 +42,7 @@ def main_loop():
 
         except Exception as e:
             utils.log(f"error in data sending: {e}")
-            smd.add_data_tothe_database(
+            smd.queue.append(
                 {
                     "time": int(unixtime),
                     "temp": temp,

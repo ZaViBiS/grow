@@ -113,7 +113,7 @@ def get_unix_time_now(now: float) -> float:
 
 class SendMissedData:
     def __init__(self) -> None:
-        pass
+        self.queue = []
 
     @contextmanager
     def get_db(self):
@@ -134,6 +134,11 @@ class SendMissedData:
 
     def send_missed_data(self):
         while True:
+            # adding to the database from the queue
+            for data in self.queue:
+                self.add_data_tothe_database(data)
+                self.queue.remove(data)
+
             with self.get_db() as db:
                 for x in db:
                     data = json.loads(db[x])
@@ -150,4 +155,5 @@ class SendMissedData:
                         time.sleep(10)
                         log(f"error in resending: {e}")
                     gc.collect()
+
             time.sleep(60 * 5)
