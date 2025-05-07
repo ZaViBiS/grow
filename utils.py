@@ -1,13 +1,15 @@
-import asyncio
+import btree
 import math
 import json
 import time
 import os
 import gc
 
+from contextlib import contextmanager
+
 from database import Database
 
-db = Database()
+database = Database()
 
 
 def log(text: str | Exception) -> None:
@@ -109,29 +111,43 @@ def get_unix_time_now(now: float) -> float:
     return now + 946684800
 
 
-async def send_missed_data():
-    while True:
-        datalistdir = os.listdir("/data")
-        if datalistdir:
-            for filename in datalistdir:
-                try:
-                    with open("/data/" + filename, "r") as f:
-                        data = json.loads(f.read())
-                except Exception as e:
-                    log(f"error while reading file {filename}: {e}")
-                    os.remove("/data/" + filename)
-                    continue
-                try:
-                    if db.put(
-                        time=data["time"],
-                        temp=data["temp"],
-                        hum=data["hum"],
-                        fan_speed=data["fan_speed"],
-                        vpd=data["vpd"],
-                    ):
-                        os.remove("/data/" + filename)
-                except Exception as e:
-                    log(f"error in resending: {e}")
+class SendMissedData:
+    def __init__(self) -> None:
+        pass
+
+    @contextmanager
+    def get_db(self):
+        f = open("data", "r+b" if os.path.exists("data") else "w+b")
+        try:
+            db = btree.open(f)
+            try:
+                yield db
+                db.flush()
+            finally:
+                db.close()
+        finally:
+            f.close()
+
+    def add_data_tothe_database(self, data: dict):
+        with self.get_db() as db:
+            db[data["time"].encode()] = json.dumps(data)
+
+    def send_missed_data(self):
+        while True:
+            with self.get_db() as db:
+                for x in db:
+                    data = json.loads(db[x])
+                    try:
+                        if database.put(
+                            time=data["time"],
+                            temp=data["temp"],
+                            hum=data["hum"],
+                            fan_speed=data["fan_speed"],
+                            vpd=data["vpd"],
+                        ):
+                            del db[x]
+                    except Exception as e:
+                        time.sleep(10)
+                        log(f"error in resending: {e}")
                     gc.collect()
-                gc.collect()
-        await asyncio.sleep(60 * 5)
+            time.sleep(60 * 5)
