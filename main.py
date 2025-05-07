@@ -10,6 +10,8 @@ from fan_control import FanControl
 from database import Database
 import utils
 
+smd = utils.SendMissedData()
+
 
 def main_loop():
     # I2C
@@ -21,7 +23,6 @@ def main_loop():
 
     points = utils.Points()
     db = Database()
-    smd = utils.SendMissedData()
 
     points.update_data_in_class()
     while True:
@@ -65,7 +66,7 @@ def main_loop():
 
 
 try:
-    _thread.start_new_thread(utils.send_missed_data, ())
+    _thread.start_new_thread(smd.send_missed_data, ())
     main_loop()
 except Exception as e:
     utils.log(e)

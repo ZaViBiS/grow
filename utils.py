@@ -5,8 +5,6 @@ import time
 import os
 import gc
 
-from contextlib import contextmanager
-
 from database import Database
 
 database = Database()
@@ -115,21 +113,30 @@ class SendMissedData:
     def __init__(self) -> None:
         self.queue = []
 
-    @contextmanager
-    def get_db(self):
-        f = open("data", "r+b" if os.path.exists("data") else "w+b")
-        try:
-            db = btree.open(f)
+    class BTreeDB:
+        def __init__(self, filename="data"):
+            self.filename = filename
+            self.file = None
+            self.db = None
+
+        def __enter__(self):
             try:
-                yield db
-                db.flush()
-            finally:
-                db.close()
-        finally:
-            f.close()
+                self.file = open("mydb", "r+b")
+            except OSError:
+                self.file = open("mydb", "w+b")
+
+            self.db = btree.open(self.file)
+            return self.db
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            if self.db:
+                self.db.flush()
+                self.db.close()
+            if self.file:
+                self.file.close()
 
     def add_data_tothe_database(self, data: dict):
-        with self.get_db() as db:
+        with self.BTreeDB() as db:
             db[data["time"].encode()] = json.dumps(data)
 
     def send_missed_data(self):
@@ -139,7 +146,7 @@ class SendMissedData:
                 self.add_data_tothe_database(data)
                 self.queue.remove(data)
 
-            with self.get_db() as db:
+            with self.BTreeDB() as db:
                 for x in db:
                     data = json.loads(db[x])
                     try:
