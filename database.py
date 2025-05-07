@@ -8,7 +8,7 @@ class Database:
     def __init__(self) -> None:
         pass
 
-    async def put(
+    def put(
         self, time: int, temp: float, hum: float, fan_speed: int, vpd: float
     ) -> bool:
         data = {

@@ -1,4 +1,3 @@
-import utils
 from machine import reset as r
 
 try:

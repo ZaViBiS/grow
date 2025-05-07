@@ -77,17 +77,17 @@ class Points:
         self.POINT_TEMP = 0
         self.POINT_HUM = 0
 
-    async def get_data(self):
+    def get_data(self):
         """return: {temp: int, hum: int}"""
         with open("points.json", "r") as file:
             return json.loads(file.read())
 
-    async def change_data(self, data: dict):
+    def change_data(self, data: dict):
         with open("points.json", "w") as file:
             file.write(json.dumps(data))
 
-    async def update_data_in_class(self):
-        data = await self.get_data()
+    def update_data_in_class(self):
+        data = self.get_data()
         self.POINT_TEMP = data["temp"]
         self.POINT_HUM = data["hum"]
 
@@ -122,7 +122,7 @@ async def send_missed_data():
                     os.remove("/data/" + filename)
                     continue
                 try:
-                    if await db.put(
+                    if db.put(
                         time=data["time"],
                         temp=data["temp"],
                         hum=data["hum"],

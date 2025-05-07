@@ -1,5 +1,5 @@
-import asyncio
 import json
+import _thread
 import time
 import gc
 
@@ -11,7 +11,7 @@ from database import Database
 import utils
 
 
-async def main_loop():
+def main_loop():
     # I2C
     i2c = I2C(0, sda=Pin(8), scl=Pin(9), freq=100000)
     sht = sht4x.SHT4X(i2c)
@@ -22,7 +22,7 @@ async def main_loop():
     points = utils.Points()
     db = Database()
 
-    await points.update_data_in_class()
+    points.update_data_in_class()
     while True:
         start = time.time()
         unixtime = utils.get_unix_time_now(start)
@@ -30,7 +30,7 @@ async def main_loop():
         vpd = utils.vpd_calculator(temp, hum)
 
         try:
-            if not await db.put(
+            if not db.put(
                 time=int(unixtime),
                 temp=temp,
                 hum=hum,
@@ -63,15 +63,12 @@ async def main_loop():
 
         gc.collect()
 
-        await asyncio.sleep(20 - (time.time() - start))
-
-
-async def starter():
-    await asyncio.gather(main_loop(), utils.send_missed_data())
+        time.sleep(20 - (time.time() - start))
 
 
 try:
-    asyncio.run(starter())
+    _thread.start_new_thread(utils.send_missed_data, ())
+    main_loop()
 except Exception as e:
     utils.log(e)
     reset()
