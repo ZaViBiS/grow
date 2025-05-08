@@ -137,7 +137,7 @@ class SendMissedData:
 
     def add_data_tothe_database(self, data: dict):
         with self.BTreeDB() as db:
-            db[data["time"].encode()] = json.dumps(data)
+            db[str(data["time"]).encode()] = json.dumps(data)
 
     def send_missed_data(self):
         while True:
@@ -163,4 +163,4 @@ class SendMissedData:
                         log(f"error in resending: {e}")
                     gc.collect()
 
-            time.sleep(60 * 5)
+            time.sleep(3 * 60)
