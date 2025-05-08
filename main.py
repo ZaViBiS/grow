@@ -26,43 +26,49 @@ def main_loop():
 
     points.update_data_in_class()
     while True:
-        start = time.time()
-        unixtime = utils.get_unix_time_now(start)
-        temp, hum = sht.measurements
-        vpd = utils.vpd_calculator(temp, hum)
+        datafor = []
+        for _ in range(6):
+            start = time.time()
+            temp, hum = sht.measurements
+            vpd = utils.vpd_calculator(temp, hum)
+
+            if temp > points.POINT_TEMP + 0.1:
+                out_fan.set_speed(out_fan.fan_speed + 1)
+            elif temp < points.POINT_TEMP - 0.1:
+                out_fan.set_speed(out_fan.fan_speed - 1)
+
+            datafor.append([temp, hum, vpd, out_fan.fan_speed])
+
+            gc.collect()
+
+            time.sleep(10 - (time.time() - start))
+
+        data = {
+            "time": utils.get_unix_time_now(),
+            "temp": 0,
+            "hum": 0,
+            "fan_speed": 0,
+            "vpd": 0,
+        }
+        for d in datafor:
+            data["temp"] += d[0]
+            data["hum"] += d[1]
+            data["vpd"] += d[2]
+            data["fan_speed"] += d[3]
+        data["temp"] = data["temp"] / 6
+        data["hum"] = data["hum"] / 6
+        data["vpd"] = data["vpd"] / 6
+        data["fan_speed"] = data["fan_speed"] / 6
 
         try:
-            if not db.put(
-                time=int(unixtime),
-                temp=temp,
-                hum=hum,
-                fan_speed=out_fan.fan_speed,
-                vpd=vpd,
-            ):
+            if not db.put(data):
                 raise
 
         except Exception as e:
             utils.log(f"error in data sending: {e}")
-            smd.queue.append(
-                {
-                    "time": int(unixtime),
-                    "temp": temp,
-                    "hum": hum,
-                    "fan_speed": out_fan.fan_speed,
-                    "vpd": vpd,
-                }
-            )
+            smd.queue.append(data)
             if not sta_if.isconnected():
                 reset()
-
-        if temp > points.POINT_TEMP + 0.1:
-            out_fan.set_speed(out_fan.fan_speed + 1)
-        elif temp < points.POINT_TEMP - 0.1:
-            out_fan.set_speed(out_fan.fan_speed - 1)
-
-        gc.collect()
-
-        time.sleep(20 - (time.time() - start))
 
 
 try:

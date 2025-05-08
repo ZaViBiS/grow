@@ -105,8 +105,10 @@ def append_to_file(text, filename):
         file.write(text)
 
 
-def get_unix_time_now(now: float) -> float:
-    return now + 946684800
+def get_unix_time_now(now: float | bool = False) -> float:
+    if now:
+        return now
+    return int(time.time() + 946684800)
 
 
 class SendMissedData:
@@ -150,13 +152,7 @@ class SendMissedData:
                 for x in db:
                     data = json.loads(db[x])
                     try:
-                        if database.put(
-                            time=data["time"],
-                            temp=data["temp"],
-                            hum=data["hum"],
-                            fan_speed=data["fan_speed"],
-                            vpd=data["vpd"],
-                        ):
+                        if database.put(data):
                             del db[x]
                     except Exception as e:
                         time.sleep(10)
