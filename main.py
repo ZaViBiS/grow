@@ -58,7 +58,7 @@ def main_loop():
                 reset()
 
         speed = pid.compute(temp)
-        out_fan.set_speed(speed)
+        out_fan.set_speed(int(speed))
 
         gc.collect()
 
