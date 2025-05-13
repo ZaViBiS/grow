@@ -2,7 +2,6 @@ import btree
 import math
 import json
 import time
-import os
 import gc
 
 from database import Database
@@ -105,10 +104,8 @@ def append_to_file(text, filename):
         file.write(text)
 
 
-def get_unix_time_now(now: float | bool = False) -> float:
-    if now:
-        return now
-    return int(time.time() + 946684800)
+def get_unix_time_now(now: float) -> float:
+    return now + 946684800
 
 
 class SendMissedData:
@@ -152,7 +149,13 @@ class SendMissedData:
                 for x in db:
                     data = json.loads(db[x])
                     try:
-                        if database.put(data):
+                        if database.put(
+                            time=data["time"],
+                            temp=data["temp"],
+                            hum=data["hum"],
+                            fan_speed=data["fan_speed"],
+                            vpd=data["vpd"],
+                        ):
                             del db[x]
                     except Exception as e:
                         time.sleep(10)
@@ -160,3 +163,38 @@ class SendMissedData:
                     gc.collect()
 
             time.sleep(3 * 60)
+
+
+class PID:
+    def __init__(self, kp, ki, kd, setpoint=0, output_limits=(0, 100)):
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+        self.setpoint = setpoint
+
+        self.integral = 0
+        self.last_error = 0
+        self.last_time = time.ticks_ms()
+
+        self.output_limits = output_limits  # (min, max)
+
+    def compute(self, current_value):
+        now = time.ticks_ms()
+        dt = time.ticks_diff(now, self.last_time) / 1000  # секунди
+        if dt <= 0:
+            dt = 1e-3  # уникнути ділення на 0
+
+        error = self.setpoint - current_value
+        self.integral += error * dt
+        derivative = (error - self.last_error) / dt
+
+        output = self.kp * error + self.ki * self.integral + self.kd * derivative
+
+        # Обмежуємо вихід
+        output = max(self.output_limits[0], min(self.output_limits[1], output))
+
+        # Оновлення
+        self.last_error = error
+        self.last_time = now
+
+        return output

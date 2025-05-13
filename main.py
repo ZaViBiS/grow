@@ -25,50 +25,44 @@ def main_loop():
     db = Database()
 
     points.update_data_in_class()
+
+    pid = utils.PID(kp=10, ki=0.2, kd=2, setpoint=points.POINT_TEMP)
     while True:
-        datafor = []
-        for _ in range(6):
-            start = time.time()
-            temp, hum = sht.measurements
-            vpd = utils.vpd_calculator(temp, hum)
-
-            if temp > points.POINT_TEMP + 0.1:
-                out_fan.set_speed(out_fan.fan_speed + 1)
-            elif temp < points.POINT_TEMP - 0.1:
-                out_fan.set_speed(out_fan.fan_speed - 1)
-
-            datafor.append([temp, hum, vpd, out_fan.fan_speed])
-
-            gc.collect()
-
-            time.sleep(10 - (time.time() - start))
-
-        data = {
-            "time": utils.get_unix_time_now(),
-            "temp": 0,
-            "hum": 0,
-            "fan_speed": 0,
-            "vpd": 0,
-        }
-        for d in datafor:
-            data["temp"] += d[0]
-            data["hum"] += d[1]
-            data["vpd"] += d[2]
-            data["fan_speed"] += d[3]
-        data["temp"] = data["temp"] / 6
-        data["hum"] = data["hum"] / 6
-        data["vpd"] = data["vpd"] / 6
-        data["fan_speed"] = data["fan_speed"] / 6
+        start = time.time()
+        unixtime = utils.get_unix_time_now(start)
+        temp, hum = sht.measurements
+        vpd = utils.vpd_calculator(temp, hum)
 
         try:
-            if not db.put(data):
+            if not db.put(
+                time=int(unixtime),
+                temp=temp,
+                hum=hum,
+                fan_speed=out_fan.fan_speed,
+                vpd=vpd,
+            ):
                 raise
 
         except Exception as e:
             utils.log(f"error in data sending: {e}")
-            smd.queue.append(data)
+            smd.queue.append(
+                {
+                    "time": int(unixtime),
+                    "temp": temp,
+                    "hum": hum,
+                    "fan_speed": out_fan.fan_speed,
+                    "vpd": vpd,
+                }
+            )
             if not sta_if.isconnected():
                 reset()
+
+        speed = pid.compute(temp)
+        out_fan.set_speed(speed)
+
+        gc.collect()
+
+        time.sleep(60 - (time.time() - start))
 
 
 try:
