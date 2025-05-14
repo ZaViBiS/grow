@@ -21,8 +21,11 @@ points.update_data_in_class()
 
 def sender():
     """thread that send data every 60 second"""
-    try:
-        while True:
+    global temp, hum
+    while temp == 0:
+        time.sleep(1)
+    while True:
+        try:
             start = time.ticks_ms()
             unixtime = int(utils.get_unix_time_now(time.time()))
 
@@ -36,25 +39,25 @@ def sender():
                 utils.log("Exception: проблема при відпраці даних")
                 raise
 
-            time.sleep(60 - time.ticks_diff(time.ticks_ms(), start))
-
-    except Exception as e:
-        utils.log(f"error in data sending: {e}")
-        smd.queue.append(
-            {
-                "time": int(unixtime),
-                "temp": temp,
-                "hum": hum,
-                "fan_speed": out_fan.fan_speed,
-                "vpd": utils.vpd_calculator(temp, hum),
-            }
-        )
-        if not sta_if.isconnected():
-            reset()
+        except Exception as e:
+            utils.log(f"error in data sending: {e}")
+            smd.queue.append(
+                {
+                    "time": int(unixtime),
+                    "temp": temp,
+                    "hum": hum,
+                    "fan_speed": out_fan.fan_speed,
+                    "vpd": utils.vpd_calculator(temp, hum),
+                }
+            )
+            if not sta_if.isconnected():
+                reset()
+        time.sleep(60 - time.ticks_diff(time.ticks_ms(), start) / 1000)
 
 
 def main_loop():
     # I2C
+    global temp, hum
     i2c = I2C(0, sda=Pin(8), scl=Pin(9), freq=100000)
     sht = sht4x.SHT4X(i2c)
     pid = utils.PID(kp=5, ki=0.2, kd=2, setpoint=points.POINT_TEMP)
@@ -68,7 +71,7 @@ def main_loop():
 
         gc.collect()
 
-        time.sleep(2 - time.ticks_diff(time.ticks_ms(), start))
+        time.sleep(2 - time.ticks_diff(time.ticks_ms(), start) / 1000)
 
 
 try:
