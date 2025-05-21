@@ -5,10 +5,14 @@ import gc
 from machine import Pin, I2C, reset
 from micropython_sht4x import sht4x
 
+from PID import PID
 from fan_control import FanControl
 from database import Database
 import utils
 
+pid = PID(1, 0.1, 0.05, setpoint=26, scale="s")
+pid.sample_time = 2
+pid.output_limits = (0, 100)
 smd = utils.SendMissedData()
 db = Database()
 points = utils.Points()
@@ -60,14 +64,12 @@ def main_loop():
     global temp, hum
     i2c = I2C(0, sda=Pin(8), scl=Pin(9), freq=100000)
     sht = sht4x.SHT4X(i2c)
-    pid = utils.PID(kp=5, ki=0.2, kd=2, setpoint=points.POINT_TEMP)
 
     while True:
         start = time.ticks_ms()
         temp, hum = sht.measurements
 
-        speed = pid.compute(temp)
-        out_fan.set_speed(int(speed))
+        out_fan.set_speed(pid(temp))
 
         gc.collect()
 
