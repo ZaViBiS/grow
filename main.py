@@ -5,14 +5,12 @@ import gc
 from machine import Pin, I2C, reset
 from micropython_sht4x import sht4x
 
-from PID import PID
+from NNT import SimpleNNTemperatureController
 from fan_control import FanControl
 from database import Database
 import utils
 
-pid = PID(1, 0.1, 0.05, setpoint=26, scale="s")
-pid.sample_time = 2
-pid.output_limits = (0, 100)
+nnt = SimpleNNTemperatureController(target_temp=26, learning_rate=0.03)
 smd = utils.SendMissedData()
 db = Database()
 points = utils.Points()
@@ -67,13 +65,19 @@ def main_loop():
 
     while True:
         start = time.ticks_ms()
+
         temp, hum = sht.measurements
+        speed = nnt.predict_fan_speed(temp)
+        out_fan.set_speed(speed)
 
-        out_fan.set_speed(pid(temp))
+        time.sleep(1)
 
-        gc.collect()
+        temp_after_action, hum = sht.measurements
+        nnt.learn(temp, temp_after_action, out_fan.fan_speed)
 
         time.sleep(2 - time.ticks_diff(time.ticks_ms(), start) / 1000)
+
+        gc.collect()
 
 
 try:
