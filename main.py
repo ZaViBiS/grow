@@ -5,17 +5,26 @@ import gc
 from machine import Pin, I2C, reset
 from micropython_sht4x import sht4x
 
-from NNT import SimpleNNTemperatureController
-from fan_control import FanControl
+from pid import PID
+from machine import Pin, PWM
 from database import Database
 import utils
 
-nnt = SimpleNNTemperatureController(target_temp=26, learning_rate=0.03)
 smd = utils.SendMissedData()
 db = Database()
 points = utils.Points()
-out_fan = FanControl(1)
-out_fan.set_speed(0)
+
+# PID controller initialization
+# Kp, Ki, Kd values are initial guesses and may need tuning
+# setpoint is the target temperature
+# output_limits (0, 1023) correspond to PWM duty cycle range
+pid_controller = PID(Kp=50.0, Ki=0.1, Kd=0.1, setpoint=26, output_limits=(0, 1023))
+
+# Fan PWM setup
+fan_pin = Pin(1) # Assuming fan is connected to Pin(1) as per previous fan_control.py
+fan_pwm = PWM(fan_pin)
+fan_pwm.freq(1000) # Set PWM frequency to 1000 Hz
+fan_pwm.duty(0) # Start with fan off
 
 temp, hum = 0.0, 0.0
 points.update_data_in_class()
@@ -35,7 +44,7 @@ def sender():
                 time=unixtime,
                 temp=temp,
                 hum=hum,
-                fan_speed=out_fan.fan_speed,
+                fan_speed=int(pid_controller.output),
                 vpd=utils.vpd_calculator(temp, hum),
             ):
                 utils.log("Exception: проблема при відпраці даних")
@@ -48,7 +57,7 @@ def sender():
                     "time": int(unixtime),
                     "temp": temp,
                     "hum": hum,
-                    "fan_speed": out_fan.fan_speed,
+                    "fan_speed": int(pid_controller.output),
                     "vpd": utils.vpd_calculator(temp, hum),
                 }
             )
@@ -67,13 +76,11 @@ def main_loop():
         start = time.ticks_ms()
 
         temp, hum = sht.measurements
-        speed = nnt.predict_fan_speed(temp)
-        out_fan.set_speed(speed)
+        pid_output = pid_controller.update(temp)
+        fan_pwm.duty(int(pid_output))
 
-        time.sleep(1)
-
-        temp_after_action, hum = sht.measurements
-        nnt.learn(temp, temp_after_action, out_fan.fan_speed)
+        # No learning phase needed for PID, as it's a direct control loop
+        # The sleep(1) and sleep(2 - ...) are still relevant for sensor readings and loop timing
 
         time.sleep(2 - time.ticks_diff(time.ticks_ms(), start) / 1000)
 

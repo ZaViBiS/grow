@@ -1,6 +1,6 @@
 import requests
 
-URL = "https://data.ygryk.de/put"
+URL = "https://158.180.54.159:8080/put"
 
 
 class Database:
